@@ -24,7 +24,7 @@ fn push_repeated(buffer: &mut String, pad_char: char, count: usize) {
 ///
 /// # Examples
 /// ```
-/// use inflector::utils::pad_start;
+/// use borno::utils::pad_start;
 ///
 /// assert_eq!(pad_start("42", 5, '0'), "00042");
 /// assert_eq!(pad_start("hello", 3, ' '), "hello");
@@ -42,7 +42,7 @@ pub fn pad_start(input: &str, target_len: usize, pad_char: char) -> String {
 ///
 /// # Examples
 /// ```
-/// use inflector::utils::pad_end;
+/// use borno::utils::pad_end;
 ///
 /// assert_eq!(pad_end("42", 5, '0'), "42000");
 /// assert_eq!(pad_end("hello", 3, ' '), "hello");
@@ -60,7 +60,7 @@ pub fn pad_end(input: &str, target_len: usize, pad_char: char) -> String {
 ///
 /// # Examples
 /// ```
-/// use inflector::utils::pad_both;
+/// use borno::utils::pad_both;
 ///
 /// assert_eq!(pad_both("title", 9, '-'), "--title--");
 /// assert_eq!(pad_both("title", 10, '-'), "--title---");
@@ -81,7 +81,7 @@ pub fn pad_both(input: &str, target_len: usize, pad_char: char) -> String {
 ///
 /// # Examples
 /// ```
-/// use inflector::utils::start;
+/// use borno::utils::start;
 ///
 /// assert_eq!(start("path/to/resource", "/"), "/path/to/resource");
 /// assert_eq!(start("/path/to/resource", "/"), "/path/to/resource");
@@ -101,7 +101,7 @@ pub fn start(input: &str, prefix: &str) -> String {
 ///
 /// # Examples
 /// ```
-/// use inflector::utils::finish;
+/// use borno::utils::finish;
 ///
 /// assert_eq!(finish("https://example.com", "/"), "https://example.com/");
 /// assert_eq!(finish("https://example.com/", "/"), "https://example.com/");
@@ -121,7 +121,7 @@ pub fn finish(input: &str, suffix: &str) -> String {
 ///
 /// # Examples
 /// ```
-/// use inflector::utils::wrap;
+/// use borno::utils::wrap;
 ///
 /// assert_eq!(wrap("value", "\"", "\""), "\"value\"");
 /// assert_eq!(wrap("tag", "<", ">"), "<tag>");
@@ -138,7 +138,7 @@ pub fn wrap(input: &str, before: &str, after: &str) -> String {
 ///
 /// # Examples
 /// ```
-/// use inflector::utils::unwrap;
+/// use borno::utils::unwrap;
 ///
 /// assert_eq!(unwrap("\"value\"", "\"", "\""), "value");
 /// assert_eq!(unwrap("<tag>", "<", ">"), "tag");

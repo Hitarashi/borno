@@ -6,7 +6,7 @@
 ///
 /// # Examples
 /// ```
-/// use inflector::utils::mask;
+/// use borno::utils::mask;
 ///
 /// assert_eq!(mask("secret-token", '*', 3, Some(5)), "sec*****oken");
 /// assert_eq!(mask("1234567812345678", '*', 0, Some(12)), "************5678");
@@ -42,7 +42,7 @@ pub fn mask(input: &str, mask_char: char, start: usize, length: Option<usize>) -
 ///
 /// # Examples
 /// ```
-/// use inflector::utils::mask_email;
+/// use borno::utils::mask_email;
 ///
 /// assert_eq!(mask_email("johndoe@example.com", '*'), "j*****e@example.com");
 /// assert_eq!(mask_email("a@example.com", '*'), "*@example.com");

@@ -1,16 +1,23 @@
 [package]
-name = "inflector"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-rust-version.workspace = true
-
-[dependencies]
-# External Dependencies
-regex = { workspace = true, optional = true }
-serde = { workspace = true, optional = true, features = ["std"] }
+name = "borno"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.85"
+description = "Fast, allocation-conscious English grammatical inflections, casing transformations, URL slugification, and string utilities."
+repository = "https://github.com/Hitarashi/borno"
+readme = "README.md"
+keywords = ["inflection", "casing", "pluralize", "slugify", "string-manipulation"]
+categories = ["text-processing", "development-tools"]
 
 [features]
 default = ["regex"]
 regex = ["dep:regex"]
 serde = ["dep:serde"]
+
+[dependencies]
+regex = { version = "1.13.2", default-features = false, features = ["std", "perf"], optional = true }
+serde = { version = "1.0.229", default-features = false, features = ["std", "derive"], optional = true }
+
+[dev-dependencies]
+serde_json = "1.0.154"

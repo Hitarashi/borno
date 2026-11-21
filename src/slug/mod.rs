@@ -75,7 +75,7 @@ impl SlugOptions {
 ///
 /// # Examples
 /// ```
-/// use inflector::slug::slugify;
+/// use borno::slug::slugify;
 ///
 /// assert_eq!(slugify("Hello World & Deep Dive!"), "hello-world-and-deep-dive");
 /// assert_eq!(slugify("Café Déjà Vu"), "cafe-deja-vu");

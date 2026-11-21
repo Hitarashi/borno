@@ -1,4 +1,4 @@
-use inflector::{StrExt, grammar::*};
+use borno::{StrExt, grammar::*};
 
 #[test]
 fn test_irregular_roundtrip() {

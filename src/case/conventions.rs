@@ -1,4 +1,4 @@
-//! Full-stack convention helpers: tableize, classify, and foreign key generation.
+//! Schema and relational convention helpers: tableize, classify, and foreign key generation.
 
 use crate::{
     case::{pascal::to_pascal_case, snake::to_snake_case},
@@ -9,7 +9,7 @@ use crate::{
 ///
 /// # Examples
 /// ```
-/// use inflector::case::tableize;
+/// use borno::case::tableize;
 ///
 /// assert_eq!(tableize("UserProfile"), "user_profiles");
 /// assert_eq!(tableize("Person"), "people");
@@ -24,7 +24,7 @@ pub fn tableize(model_name: &str) -> String {
 ///
 /// # Examples
 /// ```
-/// use inflector::case::classify;
+/// use borno::case::classify;
 ///
 /// assert_eq!(classify("user_profiles"), "UserProfile");
 /// assert_eq!(classify("people"), "Person");
@@ -39,7 +39,7 @@ pub fn classify(table_name: &str) -> String {
 ///
 /// # Examples
 /// ```
-/// use inflector::case::foreign_key;
+/// use borno::case::foreign_key;
 ///
 /// assert_eq!(foreign_key("UserProfile"), "user_profile_id");
 /// assert_eq!(foreign_key("Account"), "account_id");

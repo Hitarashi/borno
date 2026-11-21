@@ -4,7 +4,7 @@
 ///
 /// # Examples
 /// ```
-/// use inflector::utils::ordinal;
+/// use borno::utils::ordinal;
 ///
 /// assert_eq!(ordinal(1), "1st");
 /// assert_eq!(ordinal(2), "2nd");
@@ -84,7 +84,7 @@ impl SentenceOptions {
 ///
 /// # Examples
 /// ```
-/// use inflector::utils::sentence;
+/// use borno::utils::sentence;
 ///
 /// assert_eq!(sentence(&[]), "");
 /// assert_eq!(sentence(&["apples"]), "apples");

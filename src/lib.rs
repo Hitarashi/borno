@@ -1,6 +1,4 @@
-//! English grammatical inflections, casing conventions, URL slugification, and string utilities.
-//!
-//! Part of the **Druto** web framework (Layer 0: Primitives).
+//! Fast, allocation-conscious English grammatical inflections, casing conventions, URL slugification, and string utilities.
 //!
 //! # Architecture & Capabilities
 //! - **Zero-Allocation Casing**: Fast casing conversions (`to_snake_case`, `to_camel_case`,
@@ -11,7 +9,7 @@
 //!   irregular noun dictionaries, uncountable noun lookups, count-based matching, and letter-casing preservation.
 //! - **Custom Rule Engine**: Extendable [`Inflector`] engine supporting custom uncountable words,
 //!   domain-specific irregulars, and dynamic regex patterns.
-//! - **Framework Conventions**: High-level helpers (`tableize`, `classify`, `foreign_key`) for ORM and scaffolding.
+//! - **Schema Conventions**: High-level helpers (`tableize`, `classify`, `foreign_key`) for database modeling, code generation, and scaffolding.
 //! - **URL Slugification**: Fast ASCII transliteration for Latin diacritics/accents, symbol expansions, and configurable delimiters.
 //! - **String Utilities**: Sensitive data masking ([`mask()`], [`mask_email`]), truncation with whole-word preservation ([`truncate()`], [`words`]),
 //!   context excerpting ([`excerpt`]), ordinalization ([`ordinal`]), and Oxford comma list sentences ([`sentence`]).

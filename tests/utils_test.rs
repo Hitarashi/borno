@@ -1,4 +1,4 @@
-use inflector::{StrExt, utils::*};
+use borno::{StrExt, utils::*};
 
 #[test]
 fn test_truncate_and_words() {
@@ -17,10 +17,10 @@ fn test_truncate_and_words() {
 
 #[test]
 fn test_excerpt() {
-    let body = "Welcome to the Druto framework. It provides complete stack ownership for high-throughput Rust web services.";
+    let body = "Welcome to the Borno library. It provides complete text transformations for high-throughput Rust services.";
     let opts = ExcerptOptions::new().with_radius(20);
-    let result = excerpt(body, "stack ownership", &opts);
-    assert!(result.contains("stack ownership"));
+    let result = excerpt(body, "text transformations", &opts);
+    assert!(result.contains("text transformations"));
     assert!(result.starts_with("..."));
     assert!(result.ends_with("..."));
 

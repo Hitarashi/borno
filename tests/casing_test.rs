@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use inflector::{StrExt, case::*};
+use borno::{StrExt, case::*};
 
 #[test]
 fn test_casing_conversions_roundtrip() {
@@ -174,7 +174,7 @@ fn test_all_str_ext_methods() {
     assert_eq!("box".pluralize_with_count(2), "boxes");
     assert_eq!("box".pluralize_with_count_inclusive(3), "3 boxes");
 
-    let trunc_opts = inflector::utils::TruncateOptions::new().with_suffix("..");
+    let trunc_opts = borno::utils::TruncateOptions::new().with_suffix("..");
     assert_eq!(
         "long text here".truncate_with_options(6, &trunc_opts),
         "long.."
@@ -182,7 +182,7 @@ fn test_all_str_ext_methods() {
 
     assert_eq!("one two three".words(2, "..."), "one two...");
 
-    let excerpt_opts = inflector::utils::ExcerptOptions::new().with_radius(5);
+    let excerpt_opts = borno::utils::ExcerptOptions::new().with_radius(5);
     assert_eq!(
         "prefix match suffix".excerpt("match", &excerpt_opts),
         "...efix match suff..."
@@ -191,7 +191,7 @@ fn test_all_str_ext_methods() {
     assert_eq!("value".wrap("(", ")"), "(value)");
     assert_eq!("(value)".unwrap("(", ")"), "value");
 
-    let slug_opts = inflector::slug::SlugOptions::new().with_delimiter('_');
+    let slug_opts = borno::slug::SlugOptions::new().with_delimiter('_');
     assert_eq!(
         "Hello World".to_slug_with_options(&slug_opts),
         "hello_world"

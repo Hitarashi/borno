@@ -1,4 +1,4 @@
-use inflector::{StrBuilder, slug::SlugOptions, utils::TruncateOptions};
+use borno::{StrBuilder, slug::SlugOptions, utils::TruncateOptions};
 
 #[test]
 fn test_builder_multi_step_pipelines() {
@@ -17,10 +17,10 @@ fn test_builder_multi_step_pipelines() {
     let fk = StrBuilder::new("UserProfile").foreign_key().into_string();
     assert_eq!(fk, "user_profile_id");
 
-    let slug = StrBuilder::new("  Rust & Druto Framework: Fast!  ")
+    let slug = StrBuilder::new("  Rust & Borno Library: Fast!  ")
         .slugify()
         .into_string();
-    assert_eq!(slug, "rust-and-druto-framework-fast");
+    assert_eq!(slug, "rust-and-borno-library-fast");
 
     let guarded_url = StrBuilder::new("https://example.com/api")
         .finish("/")

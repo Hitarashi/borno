@@ -1,8 +1,9 @@
-use inflector::{
+#[cfg(feature = "regex")]
+use borno::grammar::{add_plural_rule, add_singular_rule};
+use borno::{
     StrBuilder, StrExt,
     grammar::{
-        Inflector, add_irregular, add_plural_rule, add_singular_rule, add_uncountable, is_plural,
-        is_singular, pluralize, singularize,
+        Inflector, add_irregular, add_uncountable, is_plural, is_singular, pluralize, singularize,
     },
     slug::{SlugOptions, slugify_with_options},
     utils::{
@@ -22,7 +23,7 @@ fn test_builder_additional_coverage() {
 
 #[test]
 fn test_casing_empty_and_edge_inputs() {
-    use inflector::case::*;
+    use borno::case::*;
 
     assert_eq!(to_camel_case(""), "");
     assert_eq!(to_pascal_case(""), "");
@@ -106,18 +107,6 @@ fn test_grammar_rules_and_predicates_edges() {
     assert!(is_singular("user"));
     assert!(!is_singular("users"));
 
-    // Invalid regex error handling
-    assert!(add_plural_rule(r"([invalid", "err").is_err());
-    assert!(add_singular_rule(r"([invalid", "err").is_err());
-
-    // Global add_plural_rule
-    add_plural_rule(r"([a-zA-Z0-9_]*)globperson$", "${1}globs").unwrap();
-    assert_eq!(pluralize("superglobperson"), "superglobs");
-
-    // Global add_singular_rule
-    add_singular_rule(r"([a-zA-Z0-9_]*)globs$", "${1}globperson").unwrap();
-    assert_eq!(singularize("superglobs"), "superglobperson");
-
     // Global add_irregular and add_uncountable
     add_irregular("matrixz", "matrixzes");
     assert_eq!(pluralize("matrixz"), "matrixzes");
@@ -126,6 +115,21 @@ fn test_grammar_rules_and_predicates_edges() {
     add_uncountable("equipmentz");
     assert_eq!(pluralize("equipmentz"), "equipmentz");
     assert_eq!(singularize("equipmentz"), "equipmentz");
+
+    #[cfg(feature = "regex")]
+    {
+        // Invalid regex error handling
+        assert!(add_plural_rule(r"([invalid", "err").is_err());
+        assert!(add_singular_rule(r"([invalid", "err").is_err());
+
+        // Global add_plural_rule
+        add_plural_rule(r"([a-zA-Z0-9_]*)globperson$", "${1}globs").unwrap();
+        assert_eq!(pluralize("superglobperson"), "superglobs");
+
+        // Global add_singular_rule
+        add_singular_rule(r"([a-zA-Z0-9_]*)globs$", "${1}globperson").unwrap();
+        assert_eq!(singularize("superglobs"), "superglobperson");
+    }
 }
 
 #[test]
@@ -220,7 +224,7 @@ fn test_utils_all_edge_cases() {
 
 #[test]
 fn test_final_coverage_boosters() {
-    use inflector::case::*;
+    use borno::case::*;
 
     assert_eq!(to_screaming_snake_case(""), "");
     assert_eq!(to_screaming_snake_case("   "), "");
@@ -230,7 +234,7 @@ fn test_final_coverage_boosters() {
     assert_eq!(pluralize("cave"), "caves");
 
     // TitleCase with empty string
-    use inflector::grammar::*;
+    use borno::grammar::*;
     let default_inf = Inflector::new();
     assert_eq!(default_inf.pluralize("userAccount"), "userAccounts");
     assert_eq!(default_inf.singularize("userAccounts"), "userAccount");

@@ -1,4 +1,4 @@
-use inflector::{StrExt, slug::*};
+use borno::{StrExt, slug::*};
 
 #[test]
 fn test_latin_diacritics_transliteration() {
@@ -50,8 +50,8 @@ fn test_custom_slug_options() {
 fn test_unicode_retention() {
     let unicode_opts = SlugOptions::new().with_allow_unicode(true);
     assert_eq!(
-        slugify_with_options("Druto フレームワーク Rocks", &unicode_opts),
-        "druto-フレームワーク-rocks"
+        slugify_with_options("Borno フレームワーク Rocks", &unicode_opts),
+        "borno-フレームワーク-rocks"
     );
 }
 
