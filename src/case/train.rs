@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use super::split_words;
+use super::transform_title;
 
 /// Checks if the input slice is already in valid `Train-Case` without allocating.
 ///
@@ -20,12 +20,7 @@ pub fn to_train_case(input: &str) -> Cow<'_, str> {
         return Cow::Borrowed(input);
     }
 
-    let words = split_words(input);
-    if words.is_empty() {
-        return Cow::Borrowed("");
-    }
-
-    Cow::Owned(super::join_words_title(&words, '-', input.len()))
+    transform_title(input, '-')
 }
 
 #[cfg(test)]

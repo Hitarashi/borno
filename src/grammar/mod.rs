@@ -12,6 +12,8 @@ pub mod uncountables;
 
 use case_preserver::{apply_casing_style, detect_casing_style};
 
+use crate::case::split_words;
+
 /// Thread-safe global default inflection engine instance.
 static GLOBAL_INFLECTOR: LazyLock<RwLock<Inflector>> =
     LazyLock::new(|| RwLock::new(Inflector::new()));
@@ -112,7 +114,7 @@ impl Inflector {
         }
 
         // Handle camelCase or PascalCase compound strings (e.g., "userProfile", "UserProfile")
-        let words = crate::case::split_words(word);
+        let words = split_words(word);
         if words.len() > 1 && !word.contains(['_', '-', ' ']) {
             let last_token = words[words.len() - 1];
             let last_offset = word.len() - last_token.len();
@@ -158,7 +160,7 @@ impl Inflector {
         }
 
         // Handle camelCase or PascalCase compound strings
-        let words = crate::case::split_words(word);
+        let words = split_words(word);
         if words.len() > 1 && !word.contains(['_', '-', ' ']) {
             let last_token = words[words.len() - 1];
             let last_offset = word.len() - last_token.len();

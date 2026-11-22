@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 mod transliterate;
 
-use transliterate::transliterate_char;
+use transliterate::{transliterate_char, transliterate_char_lower};
 
 /// Configuration options for URL slug generation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -71,6 +71,52 @@ impl SlugOptions {
     }
 }
 
+fn slugify_raw(input: &str) -> String {
+    if input.is_empty() {
+        return String::new();
+    }
+
+    let mut buf = Vec::with_capacity(input.len());
+    let mut previous_was_delimiter = true;
+
+    for current_char in input.chars() {
+        if current_char.is_ascii() {
+            let b = current_char as u8;
+            match b {
+                b'a'..=b'z' | b'0'..=b'9' => {
+                    previous_was_delimiter = false;
+                    buf.push(b);
+                }
+                b'A'..=b'Z' => {
+                    previous_was_delimiter = false;
+                    buf.push(b + 32);
+                }
+                _ => {
+                    if !previous_was_delimiter {
+                        buf.push(b'-');
+                        previous_was_delimiter = true;
+                    }
+                }
+            }
+        } else if let Some(transliterated) = transliterate_char_lower(current_char) {
+            for &tb in transliterated.as_bytes() {
+                buf.push(tb);
+            }
+            previous_was_delimiter = false;
+        } else if !previous_was_delimiter {
+            buf.push(b'-');
+            previous_was_delimiter = true;
+        }
+    }
+
+    if buf.last() == Some(&b'-') {
+        buf.pop();
+    }
+
+    // SAFETY: buf contains only ASCII bytes (a-z, 0-9, and '-') which are valid UTF-8.
+    unsafe { String::from_utf8_unchecked(buf) }
+}
+
 /// Generates a URL-safe slug from a string slice with default options.
 ///
 /// # Examples
@@ -81,7 +127,63 @@ impl SlugOptions {
 /// assert_eq!(slugify("Café Déjà Vu"), "cafe-deja-vu");
 /// ```
 pub fn slugify(input: &str) -> String {
-    slugify_with_options(input, &SlugOptions::default())
+    if input.is_empty() {
+        return String::new();
+    }
+
+    let mut buf = Vec::with_capacity(input.len() + 16);
+    let mut previous_was_delimiter = true;
+
+    for current_char in input.chars() {
+        if current_char.is_ascii() {
+            let b = current_char as u8;
+            match b {
+                b'a'..=b'z' | b'0'..=b'9' => {
+                    previous_was_delimiter = false;
+                    buf.push(b);
+                }
+                b'A'..=b'Z' => {
+                    previous_was_delimiter = false;
+                    buf.push(b + 32);
+                }
+                b'&' => {
+                    if !previous_was_delimiter {
+                        buf.push(b'-');
+                    }
+                    buf.extend_from_slice(b"and-");
+                    previous_was_delimiter = true;
+                }
+                b'@' => {
+                    if !previous_was_delimiter {
+                        buf.push(b'-');
+                    }
+                    buf.extend_from_slice(b"at-");
+                    previous_was_delimiter = true;
+                }
+                _ => {
+                    if !previous_was_delimiter {
+                        buf.push(b'-');
+                        previous_was_delimiter = true;
+                    }
+                }
+            }
+        } else if let Some(transliterated) = transliterate_char_lower(current_char) {
+            for &tb in transliterated.as_bytes() {
+                buf.push(tb);
+            }
+            previous_was_delimiter = false;
+        } else if !previous_was_delimiter {
+            buf.push(b'-');
+            previous_was_delimiter = true;
+        }
+    }
+
+    if buf.last() == Some(&b'-') {
+        buf.pop();
+    }
+
+    // SAFETY: buf contains only ASCII bytes (a-z, 0-9, and '-') which are valid UTF-8.
+    unsafe { String::from_utf8_unchecked(buf) }
 }
 
 /// Generates a URL-safe slug with customized options.
@@ -90,51 +192,241 @@ pub fn slugify_with_options(input: &str, options: &SlugOptions) -> String {
         return String::new();
     }
 
-    let mut intermediate = String::with_capacity(input.len() + 8);
+    if options.delimiter == '-'
+        && options.lowercase
+        && !options.allow_unicode
+        && options.custom_replacements.is_empty()
+    {
+        if options.symbol_expansion {
+            return slugify(input);
+        }
+        return slugify_raw(input);
+    }
 
-    for current_char in input.chars() {
-        if let Some(replacement) = options.custom_replacements.get(&current_char) {
-            intermediate.push(options.delimiter);
-            intermediate.push_str(replacement);
-            intermediate.push(options.delimiter);
-        } else if options.symbol_expansion && current_char == '&' {
-            intermediate.push(options.delimiter);
-            intermediate.push_str("and");
-            intermediate.push(options.delimiter);
-        } else if options.symbol_expansion && current_char == '@' {
-            intermediate.push(options.delimiter);
-            intermediate.push_str("at");
-            intermediate.push(options.delimiter);
-        } else if let Some(transliterated) = transliterate_char(current_char) {
-            intermediate.push_str(transliterated);
-        } else if current_char.is_ascii_alphanumeric()
-            || (options.allow_unicode && current_char.is_alphanumeric())
-        {
-            intermediate.push(current_char);
+    let has_custom = !options.custom_replacements.is_empty();
+
+    if !options.allow_unicode && !has_custom && options.delimiter.is_ascii() {
+        let delim_byte = options.delimiter as u8;
+        let mut buf = Vec::with_capacity(input.len() + 16);
+        let mut previous_was_delimiter = true;
+
+        for current_char in input.chars() {
+            if current_char.is_ascii() {
+                let b = current_char as u8;
+                match b {
+                    b'a'..=b'z' | b'0'..=b'9' => {
+                        previous_was_delimiter = false;
+                        buf.push(b);
+                    }
+                    b'A'..=b'Z' => {
+                        previous_was_delimiter = false;
+                        buf.push(if options.lowercase { b + 32 } else { b });
+                    }
+                    b'&' if options.symbol_expansion => {
+                        if !previous_was_delimiter {
+                            buf.push(delim_byte);
+                        }
+                        buf.extend_from_slice(b"and");
+                        buf.push(delim_byte);
+                        previous_was_delimiter = true;
+                    }
+                    b'@' if options.symbol_expansion => {
+                        if !previous_was_delimiter {
+                            buf.push(delim_byte);
+                        }
+                        buf.extend_from_slice(b"at");
+                        buf.push(delim_byte);
+                        previous_was_delimiter = true;
+                    }
+                    _ => {
+                        if !previous_was_delimiter {
+                            buf.push(delim_byte);
+                            previous_was_delimiter = true;
+                        }
+                    }
+                }
+            } else if let Some(transliterated) = if options.lowercase {
+                transliterate_char_lower(current_char)
+            } else {
+                transliterate_char(current_char)
+            } {
+                for &tb in transliterated.as_bytes() {
+                    buf.push(tb);
+                }
+                previous_was_delimiter = false;
+            } else if !previous_was_delimiter {
+                buf.push(delim_byte);
+                previous_was_delimiter = true;
+            }
+        }
+
+        if buf.last() == Some(&delim_byte) {
+            buf.pop();
+        }
+
+        // SAFETY: buf contains only ASCII bytes which are valid UTF-8.
+        return unsafe { String::from_utf8_unchecked(buf) };
+    }
+
+    let mut result = String::with_capacity(input.len());
+    let mut previous_was_delimiter = true;
+
+    #[inline(always)]
+    fn emit_char(
+        c: char,
+        result: &mut String,
+        previous_was_delimiter: &mut bool,
+        delimiter: char,
+        lowercase: bool,
+    ) {
+        if c == delimiter {
+            if !*previous_was_delimiter {
+                result.push(delimiter);
+                *previous_was_delimiter = true;
+            }
         } else {
-            intermediate.push(options.delimiter);
+            *previous_was_delimiter = false;
+            if lowercase {
+                if c.is_ascii() {
+                    result.push(c.to_ascii_lowercase());
+                } else {
+                    for lower_char in c.to_lowercase() {
+                        result.push(lower_char);
+                    }
+                }
+            } else {
+                result.push(c);
+            }
         }
     }
 
-    // Collapse consecutive delimiters and trim leading/trailing delimiters
-    let mut result = String::with_capacity(intermediate.len());
-    let mut previous_was_delimiter = true;
+    #[inline]
+    fn emit_str(
+        s: &str,
+        result: &mut String,
+        previous_was_delimiter: &mut bool,
+        delimiter: char,
+        lowercase: bool,
+    ) {
+        for c in s.chars() {
+            emit_char(c, result, previous_was_delimiter, delimiter, lowercase);
+        }
+    }
 
-    for current_char in intermediate.chars() {
-        if current_char == options.delimiter {
-            if !previous_was_delimiter {
-                result.push(options.delimiter);
-                previous_was_delimiter = true;
+    for current_char in input.chars() {
+        if has_custom {
+            if let Some(replacement) = options.custom_replacements.get(&current_char) {
+                emit_char(
+                    options.delimiter,
+                    &mut result,
+                    &mut previous_was_delimiter,
+                    options.delimiter,
+                    options.lowercase,
+                );
+                emit_str(
+                    replacement,
+                    &mut result,
+                    &mut previous_was_delimiter,
+                    options.delimiter,
+                    options.lowercase,
+                );
+                emit_char(
+                    options.delimiter,
+                    &mut result,
+                    &mut previous_was_delimiter,
+                    options.delimiter,
+                    options.lowercase,
+                );
+                continue;
             }
-        } else {
-            previous_was_delimiter = false;
-            if options.lowercase {
-                for lower_char in current_char.to_lowercase() {
-                    result.push(lower_char);
-                }
+        }
+
+        if current_char.is_ascii() {
+            if current_char.is_ascii_alphanumeric() {
+                emit_char(
+                    current_char,
+                    &mut result,
+                    &mut previous_was_delimiter,
+                    options.delimiter,
+                    options.lowercase,
+                );
+            } else if options.symbol_expansion && current_char == '&' {
+                emit_char(
+                    options.delimiter,
+                    &mut result,
+                    &mut previous_was_delimiter,
+                    options.delimiter,
+                    options.lowercase,
+                );
+                emit_str(
+                    "and",
+                    &mut result,
+                    &mut previous_was_delimiter,
+                    options.delimiter,
+                    options.lowercase,
+                );
+                emit_char(
+                    options.delimiter,
+                    &mut result,
+                    &mut previous_was_delimiter,
+                    options.delimiter,
+                    options.lowercase,
+                );
+            } else if options.symbol_expansion && current_char == '@' {
+                emit_char(
+                    options.delimiter,
+                    &mut result,
+                    &mut previous_was_delimiter,
+                    options.delimiter,
+                    options.lowercase,
+                );
+                emit_str(
+                    "at",
+                    &mut result,
+                    &mut previous_was_delimiter,
+                    options.delimiter,
+                    options.lowercase,
+                );
+                emit_char(
+                    options.delimiter,
+                    &mut result,
+                    &mut previous_was_delimiter,
+                    options.delimiter,
+                    options.lowercase,
+                );
             } else {
-                result.push(current_char);
+                emit_char(
+                    options.delimiter,
+                    &mut result,
+                    &mut previous_was_delimiter,
+                    options.delimiter,
+                    options.lowercase,
+                );
             }
+        } else if let Some(transliterated) = transliterate_char(current_char) {
+            emit_str(
+                transliterated,
+                &mut result,
+                &mut previous_was_delimiter,
+                options.delimiter,
+                options.lowercase,
+            );
+        } else if options.allow_unicode && current_char.is_alphanumeric() {
+            emit_char(
+                current_char,
+                &mut result,
+                &mut previous_was_delimiter,
+                options.delimiter,
+                options.lowercase,
+            );
+        } else {
+            emit_char(
+                options.delimiter,
+                &mut result,
+                &mut previous_was_delimiter,
+                options.delimiter,
+                options.lowercase,
+            );
         }
     }
 

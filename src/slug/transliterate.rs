@@ -1,7 +1,44 @@
 //! Zero-dependency Latin diacritic and accent transliteration to ASCII.
 
+/// Maps accented characters and diacritics directly to their lowercase ASCII equivalents.
+#[inline]
+pub(crate) fn transliterate_char_lower(character: char) -> Option<&'static str> {
+    if character > '\u{017E}' {
+        return None;
+    }
+    match character {
+        'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' | 'ā' | 'ă' | 'ą' | 'À' | 'Á' | 'Â' | 'Ã' | 'Ä' | 'Å'
+        | 'Ā' | 'Ă' | 'Ą' => Some("a"),
+        'æ' | 'Æ' => Some("ae"),
+        'ç' | 'ć' | 'ĉ' | 'ċ' | 'č' | 'Ç' | 'Ć' | 'Ĉ' | 'Ċ' | 'Č' => Some("c"),
+        'đ' | 'ð' | 'Đ' | 'Ð' => Some("d"),
+        'è' | 'é' | 'ê' | 'ë' | 'ē' | 'ĕ' | 'ė' | 'ę' | 'ě' | 'È' | 'É' | 'Ê' | 'Ë' | 'Ē' | 'Ĕ'
+        | 'Ė' | 'Ę' | 'Ě' => Some("e"),
+        'ì' | 'í' | 'î' | 'ï' | 'ĩ' | 'ī' | 'ĭ' | 'į' | 'ı' | 'Ì' | 'Í' | 'Î' | 'Ï' | 'Ĩ' | 'Ī'
+        | 'Ĭ' | 'Į' | 'İ' => Some("i"),
+        'ł' | 'Ł' => Some("l"),
+        'ñ' | 'ń' | 'ņ' | 'ň' | 'Ñ' | 'Ń' | 'Ņ' | 'Ň' => Some("n"),
+        'ò' | 'ó' | 'ô' | 'õ' | 'ö' | 'ø' | 'ō' | 'ŏ' | 'ő' | 'Ò' | 'Ó' | 'Ô' | 'Õ' | 'Ö' | 'Ø'
+        | 'Ō' | 'Ŏ' | 'Ő' => Some("o"),
+        'œ' | 'Œ' => Some("oe"),
+        'ś' | 'ŝ' | 'ş' | 'š' | 'Ś' | 'Ŝ' | 'Ş' | 'Š' => Some("s"),
+        'ß' => Some("ss"),
+        'ť' | 'ţ' | 'Ť' | 'Ţ' => Some("t"),
+        'þ' | 'Þ' => Some("th"),
+        'ù' | 'ú' | 'û' | 'ü' | 'ũ' | 'ū' | 'ŭ' | 'ů' | 'ű' | 'ų' | 'Ù' | 'Ú' | 'Û' | 'Ü' | 'Ũ'
+        | 'Ū' | 'Ŭ' | 'Ů' | 'Ű' | 'Ų' => Some("u"),
+        'ý' | 'ÿ' | 'ŷ' | 'Ý' | 'Ŷ' | 'Ÿ' => Some("y"),
+        'ź' | 'ż' | 'ž' | 'Ź' | 'Ż' | 'Ž' => Some("z"),
+        _ => None,
+    }
+}
+
 /// Maps accented characters and diacritics to their ASCII equivalents.
+#[inline]
 pub(crate) fn transliterate_char(character: char) -> Option<&'static str> {
+    if character > '\u{017E}' {
+        return None;
+    }
     match character {
         'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' | 'ā' | 'ă' | 'ą' => Some("a"),
         'À' | 'Á' | 'Â' | 'Ã' | 'Ä' | 'Å' | 'Ā' | 'Ă' | 'Ą' => Some("A"),

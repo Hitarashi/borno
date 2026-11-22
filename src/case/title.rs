@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use super::{append_cased, is_delimited_title, join_words_title, split_words};
+use super::{append_cased, is_delimited_title, split_words, transform_title};
 
 /// Checks if the input slice is already in valid `Title Case` without allocating.
 ///
@@ -21,12 +21,7 @@ pub fn to_title_case(input: &str) -> Cow<'_, str> {
         return Cow::Borrowed(input);
     }
 
-    let words = split_words(input);
-    if words.is_empty() {
-        return Cow::Borrowed("");
-    }
-
-    Cow::Owned(join_words_title(&words, ' ', input.len()))
+    transform_title(input, ' ')
 }
 
 /// List of minor English grammatical words (articles, coordinating conjunctions, and short prepositions)

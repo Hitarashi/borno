@@ -7,7 +7,7 @@ use borno::{
     grammar::{
         Inflector, add_irregular, add_uncountable, is_plural, is_singular, pluralize, singularize,
     },
-    slug::{SlugOptions, slugify_with_options},
+    slug::{SlugOptions, slugify, slugify_with_options},
     utils::{
         ExcerptOptions, SentenceOptions, TruncateOptions, excerpt, finish, mask_email, pad_both,
         pad_end, pad_start, sentence_with_options, start, truncate, unwrap, words, wrap,
@@ -516,4 +516,143 @@ fn test_bytes_duration_title_coverage_boosters() {
 
     // Deduplicate empty string
     assert_eq!(borno::utils::deduplicate("", '/'), "");
+}
+
+#[test]
+fn test_unicode_casing_and_slug_edges() {
+    use borno::case::*;
+
+    let german = "Über den Dächern von Zürich";
+    assert_eq!(to_snake_case(german), "über_den_dächern_von_zürich");
+    assert_eq!(to_kebab_case(german), "über-den-dächern-von-zürich");
+    assert_eq!(to_camel_case(german), "überDenDächernVonZürich");
+    assert_eq!(to_pascal_case(german), "ÜberDenDächernVonZürich");
+    assert_eq!(to_title_case(german), "Über Den Dächern Von Zürich");
+    assert_eq!(to_train_case(german), "Über-Den-Dächern-Von-Zürich");
+    assert_eq!(
+        to_screaming_snake_case(german),
+        "ÜBER_DEN_DÄCHERN_VON_ZÜRICH"
+    );
+    assert_eq!(to_dot_case(german), "über.den.dächern.von.zürich");
+    assert_eq!(to_no_case(german), "über den dächern von zürich");
+
+    // Acronym and camelCase transitions in non-ASCII
+    let french = "ÉlanVital";
+    assert_eq!(to_snake_case(french), "élan_vital");
+    assert_eq!(to_camel_case(french), "élanVital");
+    assert_eq!(to_pascal_case(french), "ÉlanVital");
+
+    let french_acronym = "ÉLANVital";
+    assert_eq!(to_snake_case(french_acronym), "élan_vital");
+    assert_eq!(to_camel_case(french_acronym), "élanVital");
+
+    let number_transition = "ÜberGröße123";
+    assert_eq!(to_snake_case(number_transition), "über_größe_123");
+    let number_transition_prefix = "123ÜberGröße";
+    assert_eq!(to_snake_case(number_transition_prefix), "123_über_größe");
+
+    // Separators with non-ASCII
+    let separated = "__über__größer__träger__";
+    assert_eq!(to_snake_case(separated), "über_größer_träger");
+    assert_eq!(to_kebab_case(separated), "über-größer-träger");
+    assert_eq!(to_camel_case(separated), "überGrößerTräger");
+    assert_eq!(to_pascal_case(separated), "ÜberGrößerTräger");
+    assert_eq!(to_title_case(separated), "Über Größer Träger");
+
+    // Non-ASCII whitespace
+    assert_eq!(to_snake_case(" \u{00A0} "), "");
+    assert_eq!(to_camel_case(" \u{00A0} "), "");
+    assert_eq!(to_title_case(" \u{00A0} "), "");
+
+    // Slug options with allow_unicode = true
+    let unicode_opts = SlugOptions::new().with_allow_unicode(true);
+    assert_eq!(
+        slugify_with_options("Hello World", &SlugOptions::new().with_lowercase(false)),
+        "Hello-World"
+    );
+    assert_eq!(
+        slugify_with_options("Café & Crème", &unicode_opts),
+        "cafe-and-creme"
+    );
+    assert_eq!(
+        slugify_with_options("東京 & 大阪", &unicode_opts),
+        "東京-and-大阪"
+    );
+    assert_eq!(
+        slugify_with_options("user@zürich.de", &unicode_opts),
+        "user-at-zurich-de"
+    );
+
+    let unicode_no_symbols = SlugOptions::new()
+        .with_allow_unicode(true)
+        .with_symbol_expansion(false);
+    assert_eq!(
+        slugify_with_options("Café & Crème", &unicode_no_symbols),
+        "cafe-creme"
+    );
+    assert_eq!(
+        slugify_with_options("東京 & 大阪", &unicode_no_symbols),
+        "東京-大阪"
+    );
+    assert_eq!(
+        slugify_with_options("user@zürich.de", &unicode_no_symbols),
+        "user-zurich-de"
+    );
+
+    let unicode_no_lower = SlugOptions::new()
+        .with_allow_unicode(true)
+        .with_lowercase(false);
+    assert_eq!(
+        slugify_with_options("Café & Crème", &unicode_no_lower),
+        "Cafe-and-Creme"
+    );
+    assert_eq!(
+        slugify_with_options("Hello 東京", &unicode_no_lower),
+        "Hello-東京"
+    );
+
+    let unicode_custom = SlugOptions::new()
+        .with_allow_unicode(true)
+        .with_replacement('$', "dollar")
+        .with_replacement('€', "euro");
+    assert_eq!(
+        slugify_with_options("Price $50 and €40", &unicode_custom),
+        "price-dollar-50-and-euro-40"
+    );
+
+    let unicode_delims = SlugOptions::new()
+        .with_allow_unicode(true)
+        .with_delimiter('_');
+    assert_eq!(
+        slugify_with_options("Café Déjà Vu", &unicode_delims),
+        "cafe_deja_vu"
+    );
+
+    // ASCII symbol expansion edge cases
+    assert_eq!(slugify("&"), "and");
+    assert_eq!(slugify("@"), "at");
+    assert_eq!(slugify("&&&"), "and-and-and");
+    assert_eq!(slugify("@@@"), "at-at-at");
+    assert_eq!(slugify("&hello&"), "and-hello-and");
+    assert_eq!(slugify("@world@"), "at-world-at");
+
+    // Non-ASCII acronym at the very end
+    assert_eq!(to_snake_case("ÜberAPI"), "über_api");
+    assert_eq!(to_camel_case("ÜberAPI"), "überApi");
+    assert_eq!(to_pascal_case("ÜberAPI"), "ÜberApi");
+
+    // Emoji or untransliterated non-ASCII symbol in default slugify (with and without space)
+    assert_eq!(slugify("Rust 🦀 2026"), "rust-2026");
+    assert_eq!(slugify("Rust🦀2026"), "rust-2026");
+
+    // Trailing symbols, bullets and non-alphanumeric with allow_unicode = true
+    assert_eq!(slugify_with_options("東京 --- !?", &unicode_opts), "東京");
+    assert_eq!(
+        slugify_with_options("東京 !? 大阪", &unicode_opts),
+        "東京-大阪"
+    );
+    assert_eq!(
+        slugify_with_options("東京•大阪", &unicode_opts),
+        "東京-大阪"
+    );
 }

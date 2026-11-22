@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use super::{is_delimited_ascii, join_words_cased, split_words};
+use super::{is_delimited_ascii, transform_cased};
 
 /// Checks if the input slice is already in valid `snake_case` without allocating.
 ///
@@ -27,12 +27,7 @@ pub fn to_snake_case(input: &str) -> Cow<'_, str> {
         return Cow::Borrowed(input);
     }
 
-    let words = split_words(input);
-    if words.is_empty() {
-        return Cow::Borrowed("");
-    }
-
-    Cow::Owned(join_words_cased(&words, '_', false, input.len()))
+    transform_cased(input, '_', false)
 }
 
 /// Converts a string slice to `SCREAMING_SNAKE_CASE`.
@@ -43,12 +38,7 @@ pub fn to_screaming_snake_case(input: &str) -> Cow<'_, str> {
         return Cow::Borrowed(input);
     }
 
-    let words = split_words(input);
-    if words.is_empty() {
-        return Cow::Borrowed("");
-    }
-
-    Cow::Owned(join_words_cased(&words, '_', true, input.len()))
+    transform_cased(input, '_', true)
 }
 
 #[cfg(test)]

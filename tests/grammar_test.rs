@@ -1,6 +1,6 @@
 #![cfg(all(feature = "grammar", feature = "ext"))]
 
-use borno::{StrExt, grammar::*, to_plural, to_singular};
+use borno::{StrExt, grammar::*};
 
 #[test]
 fn test_irregular_roundtrip() {

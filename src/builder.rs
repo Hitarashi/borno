@@ -2,16 +2,16 @@
 
 use std::{fmt, ops::Deref};
 
-#[cfg(feature = "case-capital")]
-use crate::case::capital::to_capital_case;
-#[cfg(feature = "case-no")]
-use crate::case::no::to_no_case;
 #[cfg(feature = "case-camel")]
 use crate::case::to_camel_case;
+#[cfg(feature = "case-capital")]
+use crate::case::to_capital_case;
 #[cfg(feature = "case-dot")]
 use crate::case::to_dot_case;
 #[cfg(feature = "case-kebab")]
 use crate::case::to_kebab_case;
+#[cfg(feature = "case-no")]
+use crate::case::to_no_case;
 #[cfg(feature = "case-pascal")]
 use crate::case::to_pascal_case;
 #[cfg(feature = "case-screaming-snake")]
@@ -22,6 +22,20 @@ use crate::case::to_sentence_case;
 use crate::case::to_snake_case;
 #[cfg(feature = "case-train")]
 use crate::case::to_train_case;
+#[cfg(any(
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-camel",
+    feature = "case-pascal",
+    feature = "case-kebab",
+    feature = "case-train",
+    feature = "case-title",
+    feature = "case-sentence",
+    feature = "case-dot",
+    feature = "case-no",
+    feature = "case-capital"
+))]
+use crate::case::{capitalize_first, swap_case, uncapitalize_first};
 #[cfg(feature = "conventions")]
 use crate::case::{classify, deconstantize, demodulize, foreign_key, headline, humanize, tableize};
 #[cfg(feature = "case-title")]
@@ -157,7 +171,7 @@ impl StrBuilder {
         feature = "case-capital"
     ))]
     pub fn capitalize_first(mut self) -> Self {
-        self.value = crate::case::capitalize_first(&self.value).into_owned();
+        self.value = capitalize_first(&self.value).into_owned();
         self
     }
 
@@ -176,7 +190,7 @@ impl StrBuilder {
         feature = "case-capital"
     ))]
     pub fn uncapitalize_first(mut self) -> Self {
-        self.value = crate::case::uncapitalize_first(&self.value).into_owned();
+        self.value = uncapitalize_first(&self.value).into_owned();
         self
     }
 
@@ -207,7 +221,7 @@ impl StrBuilder {
         feature = "case-capital"
     ))]
     pub fn swap_case(mut self) -> Self {
-        self.value = crate::case::swap_case(&self.value);
+        self.value = swap_case(&self.value);
         self
     }
 

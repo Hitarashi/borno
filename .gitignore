@@ -3,3 +3,8 @@
 .idea
 
 *.proptest-regressions
+
+node_modules/
+benches/node_runner/node_modules/
+benches/data/*.json
+

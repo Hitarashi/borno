@@ -150,7 +150,7 @@ pub fn between_first<'a>(
 ///
 /// # Examples
 /// ```
-/// use borno::utils::chop_start;
+/// use borno::chop_start;
 ///
 /// assert_eq!(chop_start("https://example.com", "https://"), "example.com");
 /// assert_eq!(chop_start("example.com", "https://"), "example.com");
@@ -173,7 +173,7 @@ pub fn chop_start<'a>(input: &'a str, needle: &str) -> &'a str {
 ///
 /// # Examples
 /// ```
-/// use borno::utils::chop_end;
+/// use borno::chop_end;
 ///
 /// assert_eq!(chop_end("filename.tar.gz", ".gz"), "filename.tar");
 /// assert_eq!(chop_end("filename.tar", ".gz"), "filename.tar");
@@ -195,7 +195,7 @@ pub fn chop_end<'a>(input: &'a str, needle: &str) -> &'a str {
 ///
 /// # Examples
 /// ```
-/// use borno::utils::contains_all;
+/// use borno::contains_all;
 ///
 /// assert!(contains_all("the quick brown fox", &["quick", "fox"]));
 /// assert!(!contains_all("the quick brown fox", &["quick", "dog"]));
@@ -213,7 +213,7 @@ pub fn contains_all(haystack: &str, needles: &[&str]) -> bool {
 ///
 /// # Examples
 /// ```
-/// use borno::utils::contains_any;
+/// use borno::contains_any;
 ///
 /// assert!(contains_any("the quick brown fox", &["cat", "dog", "fox"]));
 /// assert!(!contains_any("the quick brown fox", &["cat", "dog"]));
@@ -231,7 +231,7 @@ pub fn contains_any(haystack: &str, needles: &[&str]) -> bool {
 ///
 /// # Examples
 /// ```
-/// use borno::utils::is_empty_or_whitespace;
+/// use borno::is_empty_or_whitespace;
 ///
 /// assert!(is_empty_or_whitespace(""));
 /// assert!(is_empty_or_whitespace("   \t\n\r  "));
@@ -249,10 +249,10 @@ pub fn is_empty_or_whitespace(input: &str) -> bool {
 ///
 /// # Examples
 /// ```
-/// use borno::utils::starts_with_any;
+/// use borno::starts_with_any;
 ///
-/// assert!(starts_with_any("https://example.com", &["https://", "ftp://"]));
-/// assert!(!starts_with_any("git://example.com", &["https://", "ftp://"]));
+/// assert!(starts_with_any("https://example.com", &["https://", "sftp://"]));
+/// assert!(!starts_with_any("ssh://example.com", &["https://", "sftp://"]));
 /// assert!(!starts_with_any("example.com", &[]));
 /// ```
 #[inline]
@@ -267,7 +267,7 @@ pub fn starts_with_any(input: &str, needles: &[&str]) -> bool {
 ///
 /// # Examples
 /// ```
-/// use borno::utils::ends_with_any;
+/// use borno::ends_with_any;
 ///
 /// assert!(ends_with_any("archive.tar.gz", &[".tar", ".gz", ".zip"]));
 /// assert!(!ends_with_any("document.pdf", &[".tar", ".gz", ".zip"]));
@@ -285,7 +285,7 @@ pub fn ends_with_any(input: &str, needles: &[&str]) -> bool {
 ///
 /// # Examples
 /// ```
-/// use borno::utils::replace_first;
+/// use borno::replace_first;
 ///
 /// assert_eq!(replace_first("foo_bar_foo", "foo", "qux"), "qux_bar_foo");
 /// assert_eq!(replace_first("hello world", "missing", "qux"), "hello world");
@@ -312,7 +312,7 @@ pub fn replace_first(input: &str, from: &str, to: &str) -> String {
 ///
 /// # Examples
 /// ```
-/// use borno::utils::replace_last;
+/// use borno::replace_last;
 ///
 /// assert_eq!(replace_last("foo_bar_foo", "foo", "qux"), "foo_bar_qux");
 /// assert_eq!(replace_last("hello world", "missing", "qux"), "hello world");
@@ -337,7 +337,7 @@ pub fn replace_last(input: &str, from: &str, to: &str) -> String {
 ///
 /// # Examples
 /// ```
-/// use borno::utils::remove;
+/// use borno::remove;
 ///
 /// assert_eq!(remove("foo_bar_baz", "_"), "foobarbaz");
 /// assert_eq!(remove("hello world", "o"), "hell wrld");
@@ -357,7 +357,7 @@ pub fn remove(input: &str, needle: &str) -> String {
 ///
 /// # Examples
 /// ```
-/// use borno::utils::deduplicate;
+/// use borno::deduplicate;
 ///
 /// assert_eq!(deduplicate("hello///world//test", '/'), "hello/world/test");
 /// assert_eq!(deduplicate("already/clean", '/'), "already/clean");
@@ -469,11 +469,11 @@ mod tests {
     fn test_slice_advanced_utilities() {
         assert!(starts_with_any(
             "https://example.com",
-            &["https://", "ftp://"]
+            &["https://", "sftp://"]
         ));
         assert!(!starts_with_any(
-            "git://example.com",
-            &["https://", "ftp://"]
+            "ssh://example.com",
+            &["https://", "sftp://"]
         ));
         assert!(!starts_with_any("https://example.com", &[]));
 

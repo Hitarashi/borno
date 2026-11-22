@@ -2,12 +2,8 @@
 
 use std::borrow::Cow;
 
-#[cfg(feature = "case-capital")]
-use crate::case::capital::{is_capital_case, to_capital_case};
 #[cfg(all(feature = "conventions", feature = "grammar"))]
 use crate::case::is_table_case;
-#[cfg(feature = "case-no")]
-use crate::case::no::{is_no_case, to_no_case};
 #[cfg(any(
     feature = "case-snake",
     feature = "case-screaming-snake",
@@ -29,6 +25,8 @@ use crate::case::{
 };
 #[cfg(feature = "case-camel")]
 use crate::case::{is_camel_case, to_camel_case};
+#[cfg(feature = "case-capital")]
+use crate::case::{is_capital_case, to_capital_case};
 #[cfg(feature = "case-pascal")]
 use crate::case::{
     is_class_case, is_pascal_case, is_studly_case, to_class_case, to_pascal_case, to_studly_case,
@@ -37,6 +35,8 @@ use crate::case::{
 use crate::case::{is_dot_case, to_dot_case};
 #[cfg(feature = "case-kebab")]
 use crate::case::{is_kebab_case, to_kebab_case};
+#[cfg(feature = "case-no")]
+use crate::case::{is_no_case, to_no_case};
 #[cfg(feature = "case-screaming-snake")]
 use crate::case::{is_screaming_snake_case, to_screaming_snake_case};
 #[cfg(feature = "case-sentence")]

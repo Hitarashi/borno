@@ -160,7 +160,8 @@ pub fn to_table_case(input: &str) -> String {
 #[inline]
 #[cfg(all(feature = "conventions", feature = "grammar"))]
 pub fn is_table_case(input: &str) -> bool {
-    is_snake_case(input) && crate::grammar::is_plural(input)
+    use crate::grammar::is_plural;
+    is_snake_case(input) && is_plural(input)
 }
 
 /// Inverts the case of each character in a string slice.
@@ -203,6 +204,158 @@ pub fn swap_case(input: &str) -> String {
     result
 }
 
+/// Scans ASCII byte slices for word boundaries with zero allocations.
+#[inline]
+#[cfg(any(
+    feature = "case-camel",
+    feature = "case-capital",
+    feature = "case-dot",
+    feature = "case-kebab",
+    feature = "case-no",
+    feature = "case-pascal",
+    feature = "case-sentence",
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-title",
+    feature = "case-train",
+    feature = "conventions",
+    feature = "grammar"
+))]
+pub(crate) fn for_each_word_ascii<F>(bytes: &[u8], mut callback: F)
+where
+    F: FnMut(usize, usize),
+{
+    #[inline]
+    fn is_sep(b: u8) -> bool {
+        b.is_ascii_whitespace() || matches!(b, b'_' | b'-' | b'.' | b'/' | b'\\' | b':')
+    }
+
+    let len = bytes.len();
+    let mut start = usize::MAX;
+    let mut i = 0;
+
+    while i < len {
+        let b = bytes[i];
+        if is_sep(b) {
+            if start != usize::MAX {
+                callback(start, i);
+                start = usize::MAX;
+            }
+            i += 1;
+            continue;
+        }
+
+        if start != usize::MAX {
+            let prev = bytes[i - 1];
+            let is_boundary = if prev.is_ascii_lowercase() {
+                b.is_ascii_uppercase() || b.is_ascii_digit()
+            } else if prev.is_ascii_uppercase() {
+                b.is_ascii_digit()
+                    || (b.is_ascii_uppercase() && i + 1 < len && bytes[i + 1].is_ascii_lowercase())
+            } else if prev.is_ascii_digit() {
+                b.is_ascii_alphabetic()
+            } else {
+                false
+            };
+
+            if is_boundary {
+                callback(start, i);
+                start = i;
+            }
+        } else {
+            start = i;
+        }
+        i += 1;
+    }
+
+    if start != usize::MAX {
+        callback(start, len);
+    }
+}
+
+/// Splits a string slice into word slices by detecting separators,
+/// camelCase transitions, and consecutive uppercase acronym boundaries,
+/// invoking a callback for each word with zero intermediate heap allocations.
+#[inline]
+#[cfg(any(
+    feature = "case-camel",
+    feature = "case-capital",
+    feature = "case-dot",
+    feature = "case-kebab",
+    feature = "case-no",
+    feature = "case-pascal",
+    feature = "case-sentence",
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-title",
+    feature = "case-train",
+    feature = "conventions",
+    feature = "grammar"
+))]
+pub(crate) fn for_each_word<F>(input: &str, mut callback: F)
+where
+    F: FnMut(usize, usize),
+{
+    #[inline]
+    fn is_separator(character: char) -> bool {
+        character.is_whitespace() || matches!(character, '_' | '-' | '.' | '/' | '\\' | ':')
+    }
+
+    if input.is_empty() {
+        return;
+    }
+
+    if input.is_ascii() {
+        let bytes = input.as_bytes();
+        for_each_word_ascii(bytes, callback);
+        return;
+    }
+
+    let mut char_indices = input.char_indices().peekable();
+    let mut word_start: usize = 0;
+    let mut in_word = false;
+    let mut previous_char: Option<char> = None;
+
+    while let Some((current_offset, current_char)) = char_indices.next() {
+        if is_separator(current_char) {
+            if in_word {
+                callback(word_start, current_offset);
+                in_word = false;
+            }
+            previous_char = None;
+            continue;
+        }
+
+        if let Some(prev) = previous_char {
+            let is_camel_boundary = prev.is_lowercase() && current_char.is_uppercase();
+
+            let is_acronym_boundary = if prev.is_uppercase() && current_char.is_uppercase() {
+                char_indices
+                    .peek()
+                    .is_some_and(|&(_, next_char)| next_char.is_lowercase())
+            } else {
+                false
+            };
+
+            let is_number_boundary = (prev.is_alphabetic() && current_char.is_ascii_digit())
+                || (prev.is_ascii_digit() && current_char.is_alphabetic());
+
+            if is_camel_boundary || is_acronym_boundary || is_number_boundary {
+                callback(word_start, current_offset);
+                word_start = current_offset;
+            }
+        } else {
+            word_start = current_offset;
+            in_word = true;
+        }
+        previous_char = Some(current_char);
+    }
+
+    if in_word {
+        callback(word_start, input.len());
+    }
+}
+
 /// Splits a string slice into word slices by detecting separators,
 /// camelCase transitions, and consecutive uppercase acronym boundaries.
 #[cfg(any(
@@ -221,65 +374,8 @@ pub fn swap_case(input: &str) -> String {
     feature = "grammar"
 ))]
 pub(crate) fn split_words(input: &str) -> Vec<&str> {
-    #[inline]
-    fn is_separator(character: char) -> bool {
-        character.is_whitespace() || matches!(character, '_' | '-' | '.' | '/' | '\\' | ':')
-    }
-
-    if input.is_empty() {
-        return Vec::new();
-    }
-
-    let character_indices: Vec<(usize, char)> = input.char_indices().collect();
-    let total_characters = character_indices.len();
     let mut words = Vec::new();
-    let mut word_start: Option<usize> = None;
-
-    for index in 0..total_characters {
-        let (current_offset, current_char) = character_indices[index];
-
-        if is_separator(current_char) {
-            if let Some(start_offset) = word_start.take() {
-                words.push(&input[start_offset..current_offset]);
-            }
-            continue;
-        }
-
-        match word_start {
-            None => {
-                word_start = Some(current_offset);
-            }
-            Some(start_offset) => {
-                let (_, previous_char) = character_indices[index - 1];
-
-                let is_camel_boundary = previous_char.is_lowercase() && current_char.is_uppercase();
-
-                let is_acronym_boundary = if previous_char.is_uppercase()
-                    && current_char.is_uppercase()
-                    && index + 1 < total_characters
-                {
-                    let (_, next_char) = character_indices[index + 1];
-                    next_char.is_lowercase()
-                } else {
-                    false
-                };
-
-                let is_number_boundary = (previous_char.is_alphabetic()
-                    && current_char.is_ascii_digit())
-                    || (previous_char.is_ascii_digit() && current_char.is_alphabetic());
-
-                if is_camel_boundary || is_acronym_boundary || is_number_boundary {
-                    words.push(&input[start_offset..current_offset]);
-                    word_start = Some(current_offset);
-                }
-            }
-        }
-    }
-
-    if let Some(start_offset) = word_start {
-        words.push(&input[start_offset..input.len()]);
-    }
-
+    for_each_word(input, |start, end| words.push(&input[start..end]));
     words
 }
 
@@ -358,6 +454,35 @@ pub(crate) fn is_delimited_title(input: &str, separator: char) -> bool {
 #[inline]
 #[cfg(any(feature = "case-camel", feature = "case-pascal"))]
 pub(crate) fn is_camel_or_pascal(input: &str, require_uppercase_first: bool) -> bool {
+    if input.is_empty() {
+        return false;
+    }
+
+    if input.is_ascii() {
+        let bytes = input.as_bytes();
+        let first = bytes[0];
+        let first_valid = if require_uppercase_first {
+            first.is_ascii_uppercase()
+        } else {
+            first.is_ascii_lowercase()
+        };
+        if !first_valid {
+            return false;
+        }
+
+        let mut prev = first;
+        for &b in &bytes[1..] {
+            if !b.is_ascii_alphanumeric() {
+                return false;
+            }
+            if prev.is_ascii_uppercase() && b.is_ascii_uppercase() {
+                return false;
+            }
+            prev = b;
+        }
+        return true;
+    }
+
     let mut characters = input.chars();
     let Some(first_char) = characters.next() else {
         return false;
@@ -399,7 +524,13 @@ pub(crate) fn is_camel_or_pascal(input: &str, require_uppercase_first: bool) -> 
     feature = "case-train"
 ))]
 pub(crate) fn append_cased(buffer: &mut String, character: char, uppercase: bool) {
-    if uppercase {
+    if character.is_ascii() {
+        if uppercase {
+            buffer.push(character.to_ascii_uppercase());
+        } else {
+            buffer.push(character.to_ascii_lowercase());
+        }
+    } else if uppercase {
         for upper_char in character.to_uppercase() {
             buffer.push(upper_char);
         }
@@ -410,7 +541,41 @@ pub(crate) fn append_cased(buffer: &mut String, character: char, uppercase: bool
     }
 }
 
-/// Joins word slices with a single separator character in either all-lowercase or all-uppercase.
+#[inline]
+#[cfg(any(
+    feature = "case-camel",
+    feature = "case-capital",
+    feature = "case-dot",
+    feature = "case-kebab",
+    feature = "case-no",
+    feature = "case-pascal",
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-title",
+    feature = "case-train"
+))]
+fn transform_ascii_words<F>(input: &str, capacity_extra: usize, mut format_word: F) -> Cow<'_, str>
+where
+    F: FnMut(&mut Vec<u8>, &[u8], usize),
+{
+    let bytes = input.as_bytes();
+    let mut buf = Vec::with_capacity(bytes.len() + capacity_extra);
+    let mut word_index = 0;
+    for_each_word_ascii(bytes, |start, end| {
+        format_word(&mut buf, &bytes[start..end], word_index);
+        word_index += 1;
+    });
+    if buf.is_empty() {
+        Cow::Borrowed("")
+    } else {
+        // SAFETY: format_word only emits valid ASCII bytes (a-z, A-Z, 0-9, and ASCII delimiters)
+        // into buf, which constitutes valid UTF-8.
+        Cow::Owned(unsafe { String::from_utf8_unchecked(buf) })
+    }
+}
+
+/// Transforms an input string slice into single-character delimited cased words without intermediate vector allocations.
+#[inline]
 #[cfg(any(
     feature = "case-dot",
     feature = "case-kebab",
@@ -418,59 +583,128 @@ pub(crate) fn append_cased(buffer: &mut String, character: char, uppercase: bool
     feature = "case-snake",
     feature = "case-screaming-snake"
 ))]
-pub(crate) fn join_words_cased(
-    words: &[&str],
-    separator: char,
-    uppercase: bool,
-    original_len: usize,
-) -> String {
-    let total_separator_bytes = words.len().saturating_sub(1) * separator.len_utf8();
-    let mut result = String::with_capacity(original_len + total_separator_bytes);
-    for (index, word) in words.iter().enumerate() {
-        if index > 0 {
+pub(crate) fn transform_cased(input: &str, separator: char, uppercase: bool) -> Cow<'_, str> {
+    if input.is_empty() {
+        return Cow::Borrowed("");
+    }
+
+    if input.is_ascii() && separator.is_ascii() {
+        let sep_byte = separator as u8;
+        return transform_ascii_words(input, 4, |buf, word, word_index| {
+            if word_index > 0 {
+                buf.push(sep_byte);
+            }
+            if uppercase {
+                for &b in word {
+                    buf.push(b.to_ascii_uppercase());
+                }
+            } else {
+                for &b in word {
+                    buf.push(b.to_ascii_lowercase());
+                }
+            }
+        });
+    }
+
+    let mut result = String::with_capacity(input.len() + 4);
+    let mut word_index = 0;
+    for_each_word(input, |start, end| {
+        if word_index > 0 {
             result.push(separator);
         }
-        for current_char in word.chars() {
+        for current_char in input[start..end].chars() {
             append_cased(&mut result, current_char, uppercase);
         }
+        word_index += 1;
+    });
+
+    if result.is_empty() {
+        Cow::Borrowed("")
+    } else {
+        Cow::Owned(result)
     }
-    result
 }
 
-/// Joins word slices where each word is capitalized, separated by a delimiter.
+/// Transforms an input string slice into camelCase or PascalCase without intermediate vector allocations.
+#[inline]
+#[cfg(any(feature = "case-camel", feature = "case-pascal"))]
+pub(crate) fn transform_camel_or_pascal(input: &str, capitalize_first: bool) -> Cow<'_, str> {
+    if input.is_empty() {
+        return Cow::Borrowed("");
+    }
+
+    if input.is_ascii() {
+        return transform_ascii_words(input, 0, |buf, word, word_index| {
+            let capitalize = (word_index == 0 && capitalize_first) || word_index > 0;
+            if capitalize {
+                buf.push(word[0].to_ascii_uppercase());
+            } else {
+                buf.push(word[0].to_ascii_lowercase());
+            }
+            for &b in &word[1..] {
+                buf.push(b.to_ascii_lowercase());
+            }
+        });
+    }
+
+    let mut result = String::with_capacity(input.len());
+    let mut word_index = 0;
+    for_each_word(input, |start, end| {
+        let capitalize = (word_index == 0 && capitalize_first) || word_index > 0;
+        let word = &input[start..end];
+        for (char_idx, c) in word.chars().enumerate() {
+            append_cased(&mut result, c, char_idx == 0 && capitalize);
+        }
+        word_index += 1;
+    });
+
+    if result.is_empty() {
+        Cow::Borrowed("")
+    } else {
+        Cow::Owned(result)
+    }
+}
+
+/// Transforms an input string slice into capitalized title-separated words without intermediate vector allocations.
+#[inline]
 #[cfg(any(
     feature = "case-title",
     feature = "case-train",
     feature = "case-capital"
 ))]
-pub(crate) fn join_words_title(words: &[&str], separator: char, original_len: usize) -> String {
-    let total_separator_bytes = words.len().saturating_sub(1) * separator.len_utf8();
-    let mut result = String::with_capacity(original_len + total_separator_bytes);
-    for (index, word) in words.iter().enumerate() {
-        if index > 0 {
+pub(crate) fn transform_title(input: &str, separator: char) -> Cow<'_, str> {
+    if input.is_empty() {
+        return Cow::Borrowed("");
+    }
+
+    if input.is_ascii() && separator.is_ascii() {
+        let sep_byte = separator as u8;
+        return transform_ascii_words(input, 4, |buf, word, word_index| {
+            if word_index > 0 {
+                buf.push(sep_byte);
+            }
+            buf.push(word[0].to_ascii_uppercase());
+            for &b in &word[1..] {
+                buf.push(b.to_ascii_lowercase());
+            }
+        });
+    }
+
+    let mut result = String::with_capacity(input.len() + 4);
+    let mut word_index = 0;
+    for_each_word(input, |start, end| {
+        if word_index > 0 {
             result.push(separator);
         }
-        for (char_idx, current_char) in word.chars().enumerate() {
-            append_cased(&mut result, current_char, char_idx == 0);
+        for (char_idx, c) in input[start..end].chars().enumerate() {
+            append_cased(&mut result, c, char_idx == 0);
         }
-    }
-    result
-}
+        word_index += 1;
+    });
 
-/// Joins word slices into camelCase or PascalCase.
-#[cfg(any(feature = "case-camel", feature = "case-pascal"))]
-pub(crate) fn join_words_camel_or_pascal(
-    words: &[&str],
-    capitalize_first: bool,
-    original_len: usize,
-) -> String {
-    let mut result = String::with_capacity(original_len);
-    for (index, word) in words.iter().enumerate() {
-        for (char_idx, current_char) in word.chars().enumerate() {
-            let should_capitalize =
-                (index == 0 && capitalize_first && char_idx == 0) || (index > 0 && char_idx == 0);
-            append_cased(&mut result, current_char, should_capitalize);
-        }
+    if result.is_empty() {
+        Cow::Borrowed("")
+    } else {
+        Cow::Owned(result)
     }
-    result
 }

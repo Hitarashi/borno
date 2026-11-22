@@ -373,13 +373,13 @@ fn test_affix_and_extension_utilities() {
 fn test_advanced_slice_utilities() {
     assert!(starts_with_any(
         "https://example.com",
-        &["https://", "ftp://"]
+        &["https://", "sftp://"]
     ));
     assert!(!starts_with_any(
-        "git://example.com",
-        &["https://", "ftp://"]
+        "ssh://example.com",
+        &["https://", "sftp://"]
     ));
-    assert!("https://example.com".starts_with_any(&["https://", "ftp://"]));
+    assert!("https://example.com".starts_with_any(&["https://", "sftp://"]));
 
     assert!(ends_with_any("photo.jpeg", &[".jpg", ".jpeg", ".png"]));
     assert!(!ends_with_any("photo.gif", &[".jpg", ".jpeg", ".png"]));

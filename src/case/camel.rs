@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use super::{is_camel_or_pascal, join_words_camel_or_pascal, split_words};
+use super::{is_camel_or_pascal, transform_camel_or_pascal};
 
 /// Checks if the input slice is already in valid `camelCase` without allocating.
 ///
@@ -21,12 +21,7 @@ pub fn to_camel_case(input: &str) -> Cow<'_, str> {
         return Cow::Borrowed(input);
     }
 
-    let words = split_words(input);
-    if words.is_empty() {
-        return Cow::Borrowed("");
-    }
-
-    Cow::Owned(join_words_camel_or_pascal(&words, false, input.len()))
+    transform_camel_or_pascal(input, false)
 }
 
 #[cfg(test)]

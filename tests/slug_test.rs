@@ -70,4 +70,23 @@ fn test_all_transliterations() {
         slug,
         "ae-ae-c-c-d-d-e-e-i-i-l-l-n-n-o-o-oe-oe-s-s-ss-t-t-th-th-u-u-y-y-z-z"
     );
+
+    let upper_opts = SlugOptions::new().with_lowercase(false);
+    let upper_slug = slugify_with_options(input, &upper_opts);
+    assert_eq!(
+        upper_slug,
+        "ae-AE-c-C-d-D-e-E-i-I-l-L-n-N-o-O-oe-OE-s-S-ss-t-T-th-TH-u-U-y-Y-z-Z"
+    );
+}
+
+#[test]
+fn test_slug_edge_cases_and_non_latin() {
+    assert_eq!(slugify(""), "");
+    let disabled_symbols = SlugOptions::new().with_symbol_expansion(false);
+    assert_eq!(slugify_with_options("", &disabled_symbols), "");
+    assert_eq!(slugify("Live in 東京 & Zürich"), "live-in-and-zurich");
+    assert_eq!(
+        slugify_with_options("Live in 東京 & Zürich", &disabled_symbols),
+        "live-in-zurich"
+    );
 }
