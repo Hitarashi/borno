@@ -1,6 +1,7 @@
 //! Grammatical inflection engine for English pluralization and singularization.
 
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     sync::{LazyLock, RwLock},
 };
@@ -89,17 +90,24 @@ impl Inflector {
     }
 
     /// Converts a word or identifier into its plural form while preserving letter casing.
-    pub fn pluralize(&self, word: &str) -> String {
+    pub fn pluralize<'a>(&self, word: &'a str) -> Cow<'a, str> {
+        if word.is_empty() {
+            return Cow::Borrowed("");
+        }
+
         // Handle delimited compound strings (e.g., "user_profile", "user-profile", "user profile")
         if let Some(separator_index) = word.rfind(['_', '-', ' ']) {
             let prefix = &word[..=separator_index];
             let last_word = &word[separator_index + 1..];
             if !last_word.is_empty() {
                 let inflected_last = self.pluralize_single_word(last_word);
+                if inflected_last == last_word {
+                    return Cow::Borrowed(word);
+                }
                 let mut result = String::with_capacity(prefix.len() + inflected_last.len());
                 result.push_str(prefix);
                 result.push_str(&inflected_last);
-                return result;
+                return Cow::Owned(result);
             }
         }
 
@@ -110,27 +118,42 @@ impl Inflector {
             let last_offset = word.len() - last_token.len();
             let prefix = &word[..last_offset];
             let inflected_last = self.pluralize_single_word(last_token);
+            if inflected_last == last_token {
+                return Cow::Borrowed(word);
+            }
             let mut result = String::with_capacity(prefix.len() + inflected_last.len());
             result.push_str(prefix);
             result.push_str(&inflected_last);
-            return result;
+            return Cow::Owned(result);
         }
 
-        self.pluralize_single_word(word)
+        let inflected = self.pluralize_single_word(word);
+        if inflected == word {
+            Cow::Borrowed(word)
+        } else {
+            Cow::Owned(inflected)
+        }
     }
 
     /// Converts a word or identifier into its singular form while preserving letter casing.
-    pub fn singularize(&self, word: &str) -> String {
+    pub fn singularize<'a>(&self, word: &'a str) -> Cow<'a, str> {
+        if word.is_empty() {
+            return Cow::Borrowed("");
+        }
+
         // Handle delimited compound strings
         if let Some(separator_index) = word.rfind(['_', '-', ' ']) {
             let prefix = &word[..=separator_index];
             let last_word = &word[separator_index + 1..];
             if !last_word.is_empty() {
                 let inflected_last = self.singularize_single_word(last_word);
+                if inflected_last == last_word {
+                    return Cow::Borrowed(word);
+                }
                 let mut result = String::with_capacity(prefix.len() + inflected_last.len());
                 result.push_str(prefix);
                 result.push_str(&inflected_last);
-                return result;
+                return Cow::Owned(result);
             }
         }
 
@@ -141,17 +164,25 @@ impl Inflector {
             let last_offset = word.len() - last_token.len();
             let prefix = &word[..last_offset];
             let inflected_last = self.singularize_single_word(last_token);
+            if inflected_last == last_token {
+                return Cow::Borrowed(word);
+            }
             let mut result = String::with_capacity(prefix.len() + inflected_last.len());
             result.push_str(prefix);
             result.push_str(&inflected_last);
-            return result;
+            return Cow::Owned(result);
         }
 
-        self.singularize_single_word(word)
+        let inflected = self.singularize_single_word(word);
+        if inflected == word {
+            Cow::Borrowed(word)
+        } else {
+            Cow::Owned(inflected)
+        }
     }
 
     /// Inflects the word based on count: singular if count is 1, plural otherwise.
-    pub fn pluralize_with_count(&self, word: &str, count: usize) -> String {
+    pub fn pluralize_with_count<'a>(&self, word: &'a str, count: usize) -> Cow<'a, str> {
         if count == 1 {
             self.singularize(word)
         } else {
@@ -168,11 +199,6 @@ impl Inflector {
     /// Determines if a word is in plural form.
     pub fn is_plural(&self, word: &str) -> bool {
         let word_lower = word.to_lowercase();
-        if self.custom_uncountables.contains(&word_lower)
-            || uncountables::is_uncountable(&word_lower)
-        {
-            return true;
-        }
         if self
             .custom_irregulars_plural_to_singular
             .contains_key(&word_lower)
@@ -186,6 +212,11 @@ impl Inflector {
             || rules::find_irregular_plural(&word_lower).is_some()
         {
             return false;
+        }
+        if self.custom_uncountables.contains(&word_lower)
+            || uncountables::is_uncountable(&word_lower)
+        {
+            return true;
         }
         self.singularize(word) != word
     }
@@ -193,11 +224,6 @@ impl Inflector {
     /// Determines if a word is in singular form.
     pub fn is_singular(&self, word: &str) -> bool {
         let word_lower = word.to_lowercase();
-        if self.custom_uncountables.contains(&word_lower)
-            || uncountables::is_uncountable(&word_lower)
-        {
-            return true;
-        }
         if self
             .custom_irregulars_singular_to_plural
             .contains_key(&word_lower)
@@ -211,6 +237,11 @@ impl Inflector {
             || rules::find_irregular_singular(&word_lower).is_some()
         {
             return false;
+        }
+        if self.custom_uncountables.contains(&word_lower)
+            || uncountables::is_uncountable(&word_lower)
+        {
+            return true;
         }
         self.singularize(word) == word
     }
@@ -219,18 +250,18 @@ impl Inflector {
         let casing_style = detect_casing_style(word);
         let word_lower = word.to_lowercase();
 
-        if self.custom_uncountables.contains(&word_lower)
-            || uncountables::is_uncountable(&word_lower)
-        {
-            return apply_casing_style(&word_lower, casing_style);
-        }
-
         if let Some(plural) = self.custom_irregulars_singular_to_plural.get(&word_lower) {
             return apply_casing_style(plural, casing_style);
         }
 
         if let Some(plural) = rules::find_irregular_plural(&word_lower) {
             return apply_casing_style(plural, casing_style);
+        }
+
+        if self.custom_uncountables.contains(&word_lower)
+            || uncountables::is_uncountable(&word_lower)
+        {
+            return apply_casing_style(&word_lower, casing_style);
         }
 
         #[cfg(feature = "regex")]
@@ -249,18 +280,18 @@ impl Inflector {
         let casing_style = detect_casing_style(word);
         let word_lower = word.to_lowercase();
 
-        if self.custom_uncountables.contains(&word_lower)
-            || uncountables::is_uncountable(&word_lower)
-        {
-            return apply_casing_style(&word_lower, casing_style);
-        }
-
         if let Some(singular) = self.custom_irregulars_plural_to_singular.get(&word_lower) {
             return apply_casing_style(singular, casing_style);
         }
 
         if let Some(singular) = rules::find_irregular_singular(&word_lower) {
             return apply_casing_style(singular, casing_style);
+        }
+
+        if self.custom_uncountables.contains(&word_lower)
+            || uncountables::is_uncountable(&word_lower)
+        {
+            return apply_casing_style(&word_lower, casing_style);
         }
 
         #[cfg(feature = "regex")]
@@ -277,7 +308,7 @@ impl Inflector {
 }
 
 /// Global helper: Pluralizes a word or identifier using the default engine.
-pub fn pluralize(word: &str) -> String {
+pub fn pluralize(word: &str) -> Cow<'_, str> {
     GLOBAL_INFLECTOR
         .read()
         .expect("inflector lock poisoned")
@@ -285,15 +316,27 @@ pub fn pluralize(word: &str) -> String {
 }
 
 /// Global helper: Singularizes a word or identifier using the default engine.
-pub fn singularize(word: &str) -> String {
+pub fn singularize(word: &str) -> Cow<'_, str> {
     GLOBAL_INFLECTOR
         .read()
         .expect("inflector lock poisoned")
         .singularize(word)
 }
 
+/// Alias for [`pluralize`] (drop-in compatibility with cruet).
+#[inline]
+pub fn to_plural(word: &str) -> Cow<'_, str> {
+    pluralize(word)
+}
+
+/// Alias for [`singularize`] (drop-in compatibility with cruet).
+#[inline]
+pub fn to_singular(word: &str) -> Cow<'_, str> {
+    singularize(word)
+}
+
 /// Global helper: Inflects based on count using the default engine.
-pub fn pluralize_with_count(word: &str, count: usize) -> String {
+pub fn pluralize_with_count(word: &str, count: usize) -> Cow<'_, str> {
     GLOBAL_INFLECTOR
         .read()
         .expect("inflector lock poisoned")

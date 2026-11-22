@@ -235,4 +235,52 @@ fn test_all_str_ext_methods() {
     );
     assert!("The Old Man and the Sea".is_title_case_apa());
     assert_eq!("Hello World!".swap_case(), "hELLO wORLD!");
+
+    assert_eq!("user_profile".to_no_case(), "user profile");
+    assert!("user profile".is_no_case());
+    assert!(!"UserProfile".is_no_case());
+
+    assert_eq!("user_profile".to_capital_case(), "User Profile");
+    assert!("User Profile".is_capital_case());
+    assert!(!"user profile".is_capital_case());
+
+    assert_eq!("hello".capitalize_first(), "Hello");
+    assert_eq!("Hello".uncapitalize_first(), "hello");
+
+    assert_eq!("user_id".to_studly_case(), "UserId");
+    assert!("UserId".is_studly_case());
+    assert_eq!("user_id".to_class_case(), "UserId");
+    assert!("UserId".is_class_case());
+
+    assert_eq!("user_role".to_table_case(), "user_roles");
+    #[cfg(feature = "grammar")]
+    assert!("user_roles".is_table_case());
+}
+
+#[test]
+fn test_new_casing_and_scalar_helpers() {
+    assert_eq!(to_no_case("UserProfile"), "user profile");
+    assert!(is_no_case("user profile"));
+    assert!(!is_no_case("User profile"));
+
+    assert_eq!(to_capital_case("user_profile"), "User Profile");
+    assert!(is_capital_case("User Profile"));
+    assert!(!is_capital_case("user Profile"));
+
+    assert_eq!(capitalize_first("rust"), "Rust");
+    assert_eq!(ucfirst("rust"), "Rust");
+    assert_eq!(uncapitalize_first("Rust"), "rust");
+    assert_eq!(lcfirst("Rust"), "rust");
+
+    assert_eq!(to_studly_case("user_profile"), "UserProfile");
+    assert!(is_studly_case("UserProfile"));
+    assert_eq!(to_class_case("user_profile"), "UserProfile");
+    assert!(is_class_case("UserProfile"));
+
+    assert_eq!(to_table_case("UserProfile"), "user_profiles");
+    #[cfg(feature = "grammar")]
+    {
+        assert!(is_table_case("user_profiles"));
+        assert!(!is_table_case("user_profile"));
+    }
 }

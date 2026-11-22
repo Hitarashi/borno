@@ -33,6 +33,8 @@ case-train = []
 case-title = []
 case-sentence = []
 case-dot = []
+case-no = []
+case-capital = []
 
 casing = [
     "case-snake",
@@ -44,6 +46,8 @@ casing = [
     "case-title",
     "case-sentence",
     "case-dot",
+    "case-no",
+    "case-capital",
 ]
 
 # Identifier and Database Conventions

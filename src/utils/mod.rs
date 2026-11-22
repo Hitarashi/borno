@@ -40,12 +40,16 @@ pub use mask::{mask, mask_email};
 pub use normalize::{normalize_slashes, squish};
 #[cfg(feature = "util-pad")]
 pub use pad::{
-    ensure_wrap, finish, pad_both, pad_end, pad_start, start, surround, unwrap, unwrap_quotes, wrap,
+    AffixOptions, ensure_wrap, ext, finish, pad_both, pad_end, pad_start, prefix,
+    prefix_with_options, remove_extension, remove_prefix, remove_prefix_with_options,
+    remove_suffix, remove_suffix_with_options, start, suffix, suffix_with_options, surround,
+    unwrap, unwrap_quotes, wrap,
 };
 #[cfg(feature = "util-slice")]
 pub use slice::{
     after, after_last, before, before_last, between, between_first, chop_end, chop_start,
-    contains_all, contains_any, is_empty_or_whitespace,
+    contains_all, contains_any, deduplicate, ends_with_any, is_empty_or_whitespace, remove,
+    replace_first, replace_last, starts_with_any,
 };
 #[cfg(feature = "util-text")]
 pub use text::{

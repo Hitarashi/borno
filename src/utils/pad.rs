@@ -176,11 +176,9 @@ pub fn ensure_wrap(input: &str, before: &str, after: &str) -> String {
         return input.to_string();
     }
 
-    let mut result = String::with_capacity(
-        if needs_before { before.len() } else { 0 }
-            + input.len()
-            + if needs_after { after.len() } else { 0 },
-    );
+    let extra_before = if needs_before { before.len() } else { 0 };
+    let extra_after = if needs_after { after.len() } else { 0 };
+    let mut result = String::with_capacity(input.len() + extra_before + extra_after);
 
     if needs_before {
         result.push_str(before);
@@ -197,6 +195,224 @@ pub fn ensure_wrap(input: &str, before: &str, after: &str) -> String {
 #[must_use]
 pub fn surround(input: &str, before: &str, after: &str) -> String {
     wrap(input, before, after)
+}
+
+/// Options for affix (prefix and suffix) removal and addition.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct AffixOptions {
+    /// Words that should prevent stripping if matched at the boundary.
+    pub similar_words: Vec<String>,
+    /// Whether matching should ignore case (default: true).
+    pub ignore_case: bool,
+}
+
+impl Default for AffixOptions {
+    fn default() -> Self {
+        Self {
+            similar_words: Vec::new(),
+            ignore_case: true,
+        }
+    }
+}
+
+impl AffixOptions {
+    /// Creates a new default `AffixOptions`.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Sets words that protect against suffix or prefix stripping.
+    #[must_use]
+    pub fn with_similar_words<I, S>(mut self, words: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        self.similar_words = words.into_iter().map(|s| s.as_ref().to_string()).collect();
+        self
+    }
+
+    /// Configures case sensitivity.
+    #[must_use]
+    pub fn with_ignore_case(mut self, ignore_case: bool) -> Self {
+        self.ignore_case = ignore_case;
+        self
+    }
+}
+
+fn ends_with_affix(input: &str, affix: &str, ignore_case: bool) -> bool {
+    if affix.is_empty() || input.len() < affix.len() {
+        return false;
+    }
+    let tail = &input[input.len() - affix.len()..];
+    if ignore_case {
+        tail.eq_ignore_ascii_case(affix)
+    } else {
+        tail == affix
+    }
+}
+
+fn strip_affix_end<'a>(input: &'a str, affix: &str, ignore_case: bool) -> &'a str {
+    if affix.is_empty() || input.len() < affix.len() {
+        return input;
+    }
+    let tail = &input[input.len() - affix.len()..];
+    let matches = if ignore_case {
+        tail.eq_ignore_ascii_case(affix)
+    } else {
+        tail == affix
+    };
+    if matches {
+        let remainder = &input[..input.len() - affix.len()];
+        if remainder.ends_with('_') || remainder.ends_with('-') {
+            return &remainder[..remainder.len() - 1];
+        }
+        return remainder;
+    }
+    input
+}
+
+fn starts_with_affix(input: &str, affix: &str, ignore_case: bool) -> bool {
+    if affix.is_empty() || input.len() < affix.len() {
+        return false;
+    }
+    let head = &input[..affix.len()];
+    if ignore_case {
+        head.eq_ignore_ascii_case(affix)
+    } else {
+        head == affix
+    }
+}
+
+fn strip_affix_start<'a>(input: &'a str, affix: &str, ignore_case: bool) -> &'a str {
+    if affix.is_empty() || input.len() < affix.len() {
+        return input;
+    }
+    let head = &input[..affix.len()];
+    let matches = if ignore_case {
+        head.eq_ignore_ascii_case(affix)
+    } else {
+        head == affix
+    };
+    if matches {
+        let remainder = &input[affix.len()..];
+        if remainder.starts_with('_') || remainder.starts_with('-') {
+            return &remainder[1..];
+        }
+        return remainder;
+    }
+    input
+}
+
+/// Removes a suffix from a string slice with default options.
+#[must_use]
+pub fn remove_suffix<'a>(input: &'a str, suffix: &str) -> &'a str {
+    remove_suffix_with_options(input, suffix, &AffixOptions::new())
+}
+
+/// Removes a suffix from a string slice with configurable options.
+#[must_use]
+pub fn remove_suffix_with_options<'a>(
+    input: &'a str,
+    suffix: &str,
+    options: &AffixOptions,
+) -> &'a str {
+    if suffix.is_empty() || input.is_empty() {
+        return input;
+    }
+    for similar in &options.similar_words {
+        if ends_with_affix(input, similar, options.ignore_case) {
+            return input;
+        }
+    }
+    strip_affix_end(input, suffix, options.ignore_case)
+}
+
+/// Adds a suffix to a string slice, replacing any existing occurrence.
+#[must_use]
+pub fn suffix(input: &str, suffix_val: &str) -> String {
+    suffix_with_options(input, suffix_val, &AffixOptions::new())
+}
+
+/// Adds a suffix to a string slice with configurable options.
+#[must_use]
+pub fn suffix_with_options(input: &str, suffix_val: &str, options: &AffixOptions) -> String {
+    let stripped = remove_suffix_with_options(input, suffix_val, options);
+    let mut result = String::with_capacity(stripped.len() + suffix_val.len());
+    result.push_str(stripped);
+    result.push_str(suffix_val);
+    result
+}
+
+/// Removes a prefix from a string slice with default options.
+#[must_use]
+pub fn remove_prefix<'a>(input: &'a str, prefix: &str) -> &'a str {
+    remove_prefix_with_options(input, prefix, &AffixOptions::new())
+}
+
+/// Removes a prefix from a string slice with configurable options.
+#[must_use]
+pub fn remove_prefix_with_options<'a>(
+    input: &'a str,
+    prefix: &str,
+    options: &AffixOptions,
+) -> &'a str {
+    if prefix.is_empty() || input.is_empty() {
+        return input;
+    }
+    for similar in &options.similar_words {
+        if starts_with_affix(input, similar, options.ignore_case) {
+            return input;
+        }
+    }
+    strip_affix_start(input, prefix, options.ignore_case)
+}
+
+/// Adds a prefix to a string slice, replacing any existing occurrence.
+#[must_use]
+pub fn prefix(input: &str, prefix_val: &str) -> String {
+    prefix_with_options(input, prefix_val, &AffixOptions::new())
+}
+
+/// Adds a prefix to a string slice with configurable options.
+#[must_use]
+pub fn prefix_with_options(input: &str, prefix_val: &str, options: &AffixOptions) -> String {
+    let stripped = remove_prefix_with_options(input, prefix_val, options);
+    let mut result = String::with_capacity(prefix_val.len() + stripped.len());
+    result.push_str(prefix_val);
+    result.push_str(stripped);
+    result
+}
+
+/// Strips the file extension from a path or filename.
+#[must_use]
+pub fn remove_extension(input: &str) -> &str {
+    let filename_start = input.rfind(['/', '\\']).map_or(0, |idx| idx + 1);
+    let filename = &input[filename_start..];
+    if let Some(dot_idx) = filename.rfind('.') {
+        if dot_idx > 0 {
+            return &input[..filename_start + dot_idx];
+        }
+    }
+    input
+}
+
+/// Sets or replaces the file extension of a path or filename.
+#[must_use]
+pub fn ext(input: &str, extension: &str) -> String {
+    let base = remove_extension(input);
+    let clean_ext = extension.trim_start_matches('.');
+    if clean_ext.is_empty() {
+        base.to_string()
+    } else {
+        let mut result = String::with_capacity(base.len() + clean_ext.len() + 1);
+        result.push_str(base);
+        result.push('.');
+        result.push_str(clean_ext);
+        result
+    }
 }
 
 /// Strips matching enclosing double quotes (`"`) or single quotes (`'`) from a string.
@@ -263,5 +479,81 @@ mod tests {
         assert_eq!(unwrap_quotes("unquoted"), "unquoted");
         assert_eq!(unwrap_quotes("\""), "\"");
         assert_eq!(unwrap_quotes(""), "");
+    }
+
+    #[test]
+    fn test_affix_and_extension() {
+        assert_eq!(remove_suffix("usersController", "controller"), "users");
+        assert_eq!(remove_suffix("user_controller", "controller"), "user");
+        assert_eq!(remove_suffix("user-controller", "controller"), "user");
+        assert_eq!(remove_suffix("usercontroller", "controller"), "user");
+        assert_eq!(remove_suffix("a", "controller"), "a");
+        assert_eq!(remove_prefix("a", "app"), "a");
+        assert_eq!(
+            remove_suffix_with_options(
+                "a",
+                "controller",
+                &AffixOptions::new().with_ignore_case(false)
+            ),
+            "a"
+        );
+        assert_eq!(
+            remove_prefix_with_options("a", "app", &AffixOptions::new().with_ignore_case(false)),
+            "a"
+        );
+        assert_eq!(remove_suffix("", "controller"), "");
+        assert_eq!(remove_suffix("user", ""), "user");
+
+        let options = AffixOptions::new()
+            .with_similar_words(["email", "emailer"])
+            .with_ignore_case(true);
+        assert_eq!(
+            remove_suffix_with_options("verify_email", "mail", &options),
+            "verify_email"
+        );
+        assert_eq!(
+            remove_suffix_with_options("verify_mail", "mail", &options),
+            "verify"
+        );
+        assert_eq!(
+            suffix_with_options("verify_email", "Mail", &options),
+            "verify_emailMail"
+        );
+
+        assert_eq!(suffix("user", "Controller"), "userController");
+        assert_eq!(suffix("userController", "Controller"), "userController");
+        assert_eq!(suffix("user_controller", "Controller"), "userController");
+
+        assert_eq!(remove_prefix("app_user", "app"), "user");
+        assert_eq!(remove_prefix("app-user", "app"), "user");
+        assert_eq!(remove_prefix("AppUser", "app"), "User");
+        assert_eq!(remove_prefix("user", "app"), "user");
+        assert_eq!(remove_prefix("", "app"), "");
+        assert_eq!(remove_prefix("user", ""), "user");
+
+        let pref_opts = AffixOptions::new().with_similar_words(["email"]);
+        assert_eq!(
+            remove_prefix_with_options("email_address", "mail", &pref_opts),
+            "email_address"
+        );
+        assert_eq!(
+            prefix_with_options("address", "api_", &pref_opts),
+            "api_address"
+        );
+
+        assert_eq!(prefix("user", "admin_"), "admin_user");
+        assert_eq!(prefix("admin_user", "admin_"), "admin_user");
+
+        assert_eq!(remove_extension("index.html"), "index");
+        assert_eq!(remove_extension("archive.tar.gz"), "archive.tar");
+        assert_eq!(remove_extension("path/to/file.ts"), "path/to/file");
+        assert_eq!(remove_extension("path.dir/file"), "path.dir/file");
+        assert_eq!(remove_extension("no_ext"), "no_ext");
+        assert_eq!(remove_extension(""), "");
+
+        assert_eq!(ext("index.html", "ts"), "index.ts");
+        assert_eq!(ext("index", ".ts"), "index.ts");
+        assert_eq!(ext("index", ""), "index");
+        assert_eq!(ext("path/to/file.d.ts", "js"), "path/to/file.d.js");
     }
 }

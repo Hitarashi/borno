@@ -243,6 +243,159 @@ pub fn is_empty_or_whitespace(input: &str) -> bool {
     input.trim().is_empty()
 }
 
+/// Checks whether a string slice starts with any of the specified needles.
+///
+/// Returns `false` if `needles` is empty.
+///
+/// # Examples
+/// ```
+/// use borno::utils::starts_with_any;
+///
+/// assert!(starts_with_any("https://example.com", &["https://", "ftp://"]));
+/// assert!(!starts_with_any("git://example.com", &["https://", "ftp://"]));
+/// assert!(!starts_with_any("example.com", &[]));
+/// ```
+#[inline]
+#[must_use]
+pub fn starts_with_any(input: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|&needle| input.starts_with(needle))
+}
+
+/// Checks whether a string slice ends with any of the specified needles.
+///
+/// Returns `false` if `needles` is empty.
+///
+/// # Examples
+/// ```
+/// use borno::utils::ends_with_any;
+///
+/// assert!(ends_with_any("archive.tar.gz", &[".tar", ".gz", ".zip"]));
+/// assert!(!ends_with_any("document.pdf", &[".tar", ".gz", ".zip"]));
+/// assert!(!ends_with_any("document.pdf", &[]));
+/// ```
+#[inline]
+#[must_use]
+pub fn ends_with_any(input: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|&needle| input.ends_with(needle))
+}
+
+/// Replaces the first occurrence of a substring.
+///
+/// If `from` is not found or is empty, returns the original string.
+///
+/// # Examples
+/// ```
+/// use borno::utils::replace_first;
+///
+/// assert_eq!(replace_first("foo_bar_foo", "foo", "qux"), "qux_bar_foo");
+/// assert_eq!(replace_first("hello world", "missing", "qux"), "hello world");
+/// ```
+#[must_use]
+pub fn replace_first(input: &str, from: &str, to: &str) -> String {
+    if from.is_empty() {
+        return input.to_string();
+    }
+    if let Some(idx) = input.find(from) {
+        let mut result = String::with_capacity(input.len().saturating_sub(from.len()) + to.len());
+        result.push_str(&input[..idx]);
+        result.push_str(to);
+        result.push_str(&input[idx + from.len()..]);
+        result
+    } else {
+        input.to_string()
+    }
+}
+
+/// Replaces the last occurrence of a substring.
+///
+/// If `from` is not found or is empty, returns the original string.
+///
+/// # Examples
+/// ```
+/// use borno::utils::replace_last;
+///
+/// assert_eq!(replace_last("foo_bar_foo", "foo", "qux"), "foo_bar_qux");
+/// assert_eq!(replace_last("hello world", "missing", "qux"), "hello world");
+/// ```
+#[must_use]
+pub fn replace_last(input: &str, from: &str, to: &str) -> String {
+    if from.is_empty() {
+        return input.to_string();
+    }
+    if let Some(idx) = input.rfind(from) {
+        let mut result = String::with_capacity(input.len().saturating_sub(from.len()) + to.len());
+        result.push_str(&input[..idx]);
+        result.push_str(to);
+        result.push_str(&input[idx + from.len()..]);
+        result
+    } else {
+        input.to_string()
+    }
+}
+
+/// Removes all occurrences of the specified needle from a string slice.
+///
+/// # Examples
+/// ```
+/// use borno::utils::remove;
+///
+/// assert_eq!(remove("foo_bar_baz", "_"), "foobarbaz");
+/// assert_eq!(remove("hello world", "o"), "hell wrld");
+/// assert_eq!(remove("test", ""), "test");
+/// ```
+#[must_use]
+pub fn remove(input: &str, needle: &str) -> String {
+    if needle.is_empty() {
+        return input.to_string();
+    }
+    input.replace(needle, "")
+}
+
+/// Deduplicates consecutive occurrences of a character in a string slice.
+///
+/// Returns `Cow::Borrowed` with zero allocations if the input has no consecutive duplicates.
+///
+/// # Examples
+/// ```
+/// use borno::utils::deduplicate;
+///
+/// assert_eq!(deduplicate("hello///world//test", '/'), "hello/world/test");
+/// assert_eq!(deduplicate("already/clean", '/'), "already/clean");
+/// ```
+#[must_use]
+pub fn deduplicate(input: &str, character: char) -> Cow<'_, str> {
+    let mut chars = input.chars();
+    let mut has_duplicate = false;
+    if let Some(mut prev) = chars.next() {
+        for next in chars {
+            if prev == character && next == character {
+                has_duplicate = true;
+                break;
+            }
+            prev = next;
+        }
+    }
+
+    if !has_duplicate {
+        return Cow::Borrowed(input);
+    }
+
+    let mut result = String::with_capacity(input.len());
+    let mut previous_was_char = false;
+    for c in input.chars() {
+        if c == character {
+            if !previous_was_char {
+                result.push(c);
+                previous_was_char = true;
+            }
+        } else {
+            result.push(c);
+            previous_was_char = false;
+        }
+    }
+    Cow::Owned(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -310,5 +463,43 @@ mod tests {
         assert!(is_empty_or_whitespace(""));
         assert!(is_empty_or_whitespace("   \r\n\t "));
         assert!(!is_empty_or_whitespace("   a   "));
+    }
+
+    #[test]
+    fn test_slice_advanced_utilities() {
+        assert!(starts_with_any(
+            "https://example.com",
+            &["https://", "ftp://"]
+        ));
+        assert!(!starts_with_any(
+            "git://example.com",
+            &["https://", "ftp://"]
+        ));
+        assert!(!starts_with_any("https://example.com", &[]));
+
+        assert!(ends_with_any("archive.tar.gz", &[".tar", ".gz", ".zip"]));
+        assert!(!ends_with_any("document.pdf", &[".tar", ".gz", ".zip"]));
+        assert!(!ends_with_any("archive.tar.gz", &[]));
+
+        assert_eq!(replace_first("foo_bar_foo", "foo", "qux"), "qux_bar_foo");
+        assert_eq!(
+            replace_first("foo_bar_foo", "missing", "qux"),
+            "foo_bar_foo"
+        );
+        assert_eq!(replace_first("foo_bar_foo", "", "qux"), "foo_bar_foo");
+
+        assert_eq!(replace_last("foo_bar_foo", "foo", "qux"), "foo_bar_qux");
+        assert_eq!(replace_last("foo_bar_foo", "missing", "qux"), "foo_bar_foo");
+        assert_eq!(replace_last("foo_bar_foo", "", "qux"), "foo_bar_foo");
+
+        assert_eq!(remove("foo_bar_baz", "_"), "foobarbaz");
+        assert_eq!(remove("foo_bar_baz", ""), "foo_bar_baz");
+
+        assert_eq!(deduplicate("hello///world//test", '/'), "hello/world/test");
+        assert_eq!(deduplicate("already/clean", '/'), "already/clean");
+        assert!(matches!(
+            deduplicate("already/clean", '/'),
+            Cow::Borrowed(_)
+        ));
     }
 }

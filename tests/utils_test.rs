@@ -300,6 +300,7 @@ fn test_format_deordinalize_and_suffix() {
 fn test_pad_surround_and_quotes() {
     assert_eq!(ensure_wrap("path", "/", "/"), "/path/");
     assert_eq!(ensure_wrap("/path", "/", "/"), "/path/");
+    assert_eq!(ensure_wrap("path/", "/", "/"), "/path/");
     assert_eq!(ensure_wrap("/path/", "/", "/"), "/path/");
 
     assert_eq!("path".ensure_wrap("/", "/"), "/path/");
@@ -313,4 +314,101 @@ fn test_pad_surround_and_quotes() {
     assert_eq!(unwrap_quotes("unquoted"), "unquoted");
 
     assert_eq!("\"quoted\"".unwrap_quotes(), "quoted");
+}
+
+#[test]
+fn test_affix_and_extension_utilities() {
+    assert_eq!(remove_suffix("UserController", "Controller"), "User");
+    assert_eq!(remove_suffix("UserController", "Service"), "UserController");
+    assert_eq!(suffix("User", "Controller"), "UserController");
+    assert_eq!(suffix("UserController", "Controller"), "UserController");
+    assert_eq!(suffix("foo", "bar"), "foobar");
+
+    let similar = AffixOptions::new()
+        .with_similar_words(["email", "emailer"])
+        .with_ignore_case(true);
+    assert_eq!(
+        suffix_with_options("verify_email", "Mail", &similar),
+        "verify_emailMail"
+    );
+    assert_eq!(
+        remove_suffix_with_options("verify_email", "mail", &similar),
+        "verify_email"
+    );
+
+    assert_eq!(remove_prefix("HttpController", "Http"), "Controller");
+    assert_eq!(remove_prefix("Controller", "Http"), "Controller");
+    assert_eq!(prefix("Controller", "Http"), "HttpController");
+    assert_eq!(prefix("HttpController", "Http"), "HttpController");
+
+    let prefix_similar = AffixOptions::new()
+        .with_similar_words(["maker"])
+        .with_ignore_case(true);
+    assert_eq!(
+        prefix_with_options("makerservice", "make_", &prefix_similar),
+        "make_makerservice"
+    );
+    assert_eq!(
+        remove_prefix_with_options("makerservice", "make", &prefix_similar),
+        "makerservice"
+    );
+
+    assert_eq!(remove_extension("app.component.ts"), "app.component");
+    assert_eq!(remove_extension("Makefile"), "Makefile");
+    assert_eq!(remove_suffix("a", "Controller"), "a");
+    assert_eq!(remove_prefix("a", "Http"), "a");
+    assert_eq!(ext("component", "js"), "component.js");
+    assert_eq!(ext("app.component.ts", "js"), "app.component.js");
+    assert_eq!(ext("file", ""), "file");
+
+    assert_eq!("UserController".remove_suffix("Controller"), "User");
+    assert_eq!("User".suffix("Controller"), "UserController");
+    assert_eq!("HttpController".remove_prefix("Http"), "Controller");
+    assert_eq!("Controller".prefix("Http"), "HttpController");
+    assert_eq!("file.txt".remove_extension(), "file");
+    assert_eq!("file".ext("txt"), "file.txt");
+}
+
+#[test]
+fn test_advanced_slice_utilities() {
+    assert!(starts_with_any(
+        "https://example.com",
+        &["https://", "ftp://"]
+    ));
+    assert!(!starts_with_any(
+        "git://example.com",
+        &["https://", "ftp://"]
+    ));
+    assert!("https://example.com".starts_with_any(&["https://", "ftp://"]));
+
+    assert!(ends_with_any("photo.jpeg", &[".jpg", ".jpeg", ".png"]));
+    assert!(!ends_with_any("photo.gif", &[".jpg", ".jpeg", ".png"]));
+    assert!("photo.jpeg".ends_with_any(&[".jpg", ".jpeg", ".png"]));
+
+    assert_eq!(
+        replace_first("foo bar foo baz", "foo", "qux"),
+        "qux bar foo baz"
+    );
+    assert_eq!(
+        "foo bar foo baz".replace_first("foo", "qux"),
+        "qux bar foo baz"
+    );
+
+    assert_eq!(
+        replace_last("foo bar foo baz", "foo", "qux"),
+        "foo bar qux baz"
+    );
+    assert_eq!(
+        "foo bar foo baz".replace_last("foo", "qux"),
+        "foo bar qux baz"
+    );
+
+    assert_eq!(remove("foo bar baz foo", "foo "), "bar baz foo");
+    assert_eq!("foo bar baz foo".remove("foo "), "bar baz foo");
+
+    assert_eq!(deduplicate("a///b////c", '/'), "a/b/c");
+    assert_eq!("a///b////c".deduplicate('/'), "a/b/c");
+    let non_dup = "a/b/c";
+    let dedup_res = deduplicate(non_dup, '/');
+    assert!(matches!(dedup_res, std::borrow::Cow::Borrowed(_)));
 }

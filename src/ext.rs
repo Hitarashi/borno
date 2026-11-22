@@ -2,6 +2,12 @@
 
 use std::borrow::Cow;
 
+#[cfg(feature = "case-capital")]
+use crate::case::capital::{is_capital_case, to_capital_case};
+#[cfg(all(feature = "conventions", feature = "grammar"))]
+use crate::case::is_table_case;
+#[cfg(feature = "case-no")]
+use crate::case::no::{is_no_case, to_no_case};
 #[cfg(any(
     feature = "case-snake",
     feature = "case-screaming-snake",
@@ -11,21 +17,26 @@ use std::borrow::Cow;
     feature = "case-train",
     feature = "case-title",
     feature = "case-sentence",
-    feature = "case-dot"
+    feature = "case-dot",
+    feature = "case-no",
+    feature = "case-capital"
 ))]
-use crate::case::swap_case;
+use crate::case::{capitalize_first, swap_case, uncapitalize_first};
 #[cfg(feature = "conventions")]
 use crate::case::{
     classify, deconstantize, demodulize, foreign_key, headline, humanize, is_foreign_key, tableize,
+    to_table_case,
 };
 #[cfg(feature = "case-camel")]
 use crate::case::{is_camel_case, to_camel_case};
+#[cfg(feature = "case-pascal")]
+use crate::case::{
+    is_class_case, is_pascal_case, is_studly_case, to_class_case, to_pascal_case, to_studly_case,
+};
 #[cfg(feature = "case-dot")]
 use crate::case::{is_dot_case, to_dot_case};
 #[cfg(feature = "case-kebab")]
 use crate::case::{is_kebab_case, to_kebab_case};
-#[cfg(feature = "case-pascal")]
-use crate::case::{is_pascal_case, to_pascal_case};
 #[cfg(feature = "case-screaming-snake")]
 use crate::case::{is_screaming_snake_case, to_screaming_snake_case};
 #[cfg(feature = "case-sentence")]
@@ -49,6 +60,12 @@ use crate::utils::deordinalize;
 use crate::utils::interpolate;
 #[cfg(feature = "util-mask")]
 use crate::utils::mask;
+#[cfg(feature = "util-pad")]
+use crate::utils::{
+    AffixOptions, ensure_wrap, ext, finish, prefix, prefix_with_options, remove_extension,
+    remove_prefix, remove_prefix_with_options, remove_suffix, remove_suffix_with_options, start,
+    suffix, suffix_with_options, surround, unwrap, unwrap_quotes, wrap,
+};
 #[cfg(feature = "util-truncate")]
 use crate::utils::{ExcerptOptions, TruncateOptions, excerpt, truncate, words};
 #[cfg(feature = "util-bytes")]
@@ -62,10 +79,9 @@ use crate::utils::{
 #[cfg(feature = "util-slice")]
 use crate::utils::{
     after, after_last, before, before_last, between, between_first, chop_end, chop_start,
-    contains_all, contains_any, is_empty_or_whitespace,
+    contains_all, contains_any, deduplicate, ends_with_any, is_empty_or_whitespace, remove,
+    replace_first, replace_last, starts_with_any,
 };
-#[cfg(feature = "util-pad")]
-use crate::utils::{ensure_wrap, finish, start, surround, unwrap, unwrap_quotes, wrap};
 #[cfg(feature = "util-normalize")]
 use crate::utils::{normalize_slashes, squish};
 
@@ -111,9 +127,81 @@ pub trait StrExt {
     #[cfg(feature = "case-dot")]
     fn to_dot_case(&self) -> Cow<'_, str>;
 
+    /// Converts to `no case`.
+    #[cfg(feature = "case-no")]
+    fn to_no_case(&self) -> Cow<'_, str>;
+
+    /// Checks if the slice is in valid `no case`.
+    #[cfg(feature = "case-no")]
+    fn is_no_case(&self) -> bool;
+
+    /// Converts to `Capital Case`.
+    #[cfg(feature = "case-capital")]
+    fn to_capital_case(&self) -> Cow<'_, str>;
+
+    /// Checks if the slice is in valid `Capital Case`.
+    #[cfg(feature = "case-capital")]
+    fn is_capital_case(&self) -> bool;
+
+    /// Capitalizes only the first Unicode scalar character.
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
+    ))]
+    fn capitalize_first(&self) -> Cow<'_, str>;
+
+    /// Lowercases only the first Unicode scalar character.
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
+    ))]
+    fn uncapitalize_first(&self) -> Cow<'_, str>;
+
+    /// Alias for [`Self::to_pascal_case`].
+    #[cfg(feature = "case-pascal")]
+    fn to_studly_case(&self) -> Cow<'_, str>;
+
+    /// Checks if the slice is in PascalCase / StudlyCase.
+    #[cfg(feature = "case-pascal")]
+    fn is_studly_case(&self) -> bool;
+
+    /// Alias for [`Self::to_pascal_case`].
+    #[cfg(feature = "case-pascal")]
+    fn to_class_case(&self) -> Cow<'_, str>;
+
+    /// Checks if the slice is in ClassCase.
+    #[cfg(feature = "case-pascal")]
+    fn is_class_case(&self) -> bool;
+
     /// Converts a model name into a conventional database table name.
     #[cfg(feature = "conventions")]
     fn tableize(&self) -> String;
+
+    /// Alias for [`Self::tableize`].
+    #[cfg(feature = "conventions")]
+    fn to_table_case(&self) -> String;
+
+    /// Checks if the slice is a valid table name.
+    #[cfg(all(feature = "conventions", feature = "grammar"))]
+    fn is_table_case(&self) -> bool;
 
     /// Converts a database table name into a conventional model class name.
     #[cfg(feature = "conventions")]
@@ -185,7 +273,9 @@ pub trait StrExt {
         feature = "case-train",
         feature = "case-title",
         feature = "case-sentence",
-        feature = "case-dot"
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
     ))]
     fn swap_case(&self) -> String;
 
@@ -199,15 +289,15 @@ pub trait StrExt {
 
     /// Pluralizes a word.
     #[cfg(feature = "grammar")]
-    fn to_plural(&self) -> String;
+    fn to_plural(&self) -> Cow<'_, str>;
 
     /// Singularizes a word.
     #[cfg(feature = "grammar")]
-    fn to_singular(&self) -> String;
+    fn to_singular(&self) -> Cow<'_, str>;
 
     /// Inflects a word based on a count.
     #[cfg(feature = "grammar")]
-    fn pluralize_with_count(&self, count: usize) -> String;
+    fn pluralize_with_count(&self, count: usize) -> Cow<'_, str>;
 
     /// Inflects a word with a count prefix.
     #[cfg(feature = "grammar")]
@@ -277,6 +367,46 @@ pub trait StrExt {
     #[cfg(feature = "util-pad")]
     fn unwrap_quotes(&self) -> &str;
 
+    /// Adds a prefix to the string slice, replacing any existing occurrence.
+    #[cfg(feature = "util-pad")]
+    fn prefix(&self, prefix_val: &str) -> String;
+
+    /// Adds a prefix to the string slice with configurable options.
+    #[cfg(feature = "util-pad")]
+    fn prefix_with_options(&self, prefix: &str, options: &AffixOptions) -> String;
+
+    /// Removes a prefix from the string slice with default options.
+    #[cfg(feature = "util-pad")]
+    fn remove_prefix(&self, prefix: &str) -> &str;
+
+    /// Removes a prefix from the string slice with configurable options.
+    #[cfg(feature = "util-pad")]
+    fn remove_prefix_with_options<'a>(&'a self, prefix: &str, options: &AffixOptions) -> &'a str;
+
+    /// Adds a suffix to the string slice, replacing any existing occurrence.
+    #[cfg(feature = "util-pad")]
+    fn suffix(&self, suffix_val: &str) -> String;
+
+    /// Adds a suffix to the string slice with configurable options.
+    #[cfg(feature = "util-pad")]
+    fn suffix_with_options(&self, suffix: &str, options: &AffixOptions) -> String;
+
+    /// Removes a suffix from the string slice with default options.
+    #[cfg(feature = "util-pad")]
+    fn remove_suffix(&self, suffix: &str) -> &str;
+
+    /// Removes a suffix from the string slice with configurable options.
+    #[cfg(feature = "util-pad")]
+    fn remove_suffix_with_options<'a>(&'a self, suffix: &str, options: &AffixOptions) -> &'a str;
+
+    /// Sets or replaces the file extension.
+    #[cfg(feature = "util-pad")]
+    fn ext(&self, extension: &str) -> String;
+
+    /// Strips the file extension.
+    #[cfg(feature = "util-pad")]
+    fn remove_extension(&self) -> &str;
+
     /// Extracts the substring before the first delimiter occurrence.
     #[cfg(feature = "util-slice")]
     fn before(&self, delimiter: &str) -> Cow<'_, str>;
@@ -320,6 +450,30 @@ pub trait StrExt {
     /// Checks if the string slice is empty or contains only whitespace.
     #[cfg(feature = "util-slice")]
     fn is_empty_or_whitespace(&self) -> bool;
+
+    /// Checks if the string slice starts with any of the specified needles.
+    #[cfg(feature = "util-slice")]
+    fn starts_with_any(&self, needles: &[&str]) -> bool;
+
+    /// Checks if the string slice ends with any of the specified needles.
+    #[cfg(feature = "util-slice")]
+    fn ends_with_any(&self, needles: &[&str]) -> bool;
+
+    /// Replaces the first occurrence of a substring.
+    #[cfg(feature = "util-slice")]
+    fn replace_first(&self, from: &str, to: &str) -> String;
+
+    /// Replaces the last occurrence of a substring.
+    #[cfg(feature = "util-slice")]
+    fn replace_last(&self, from: &str, to: &str) -> String;
+
+    /// Removes all occurrences of the specified needle.
+    #[cfg(feature = "util-slice")]
+    fn remove(&self, needle: &str) -> String;
+
+    /// Deduplicates consecutive occurrences of a character.
+    #[cfg(feature = "util-slice")]
+    fn deduplicate(&self, character: char) -> Cow<'_, str>;
 
     /// Strips an English ordinal suffix from a number string.
     #[cfg(feature = "util-format")]
@@ -413,9 +567,93 @@ impl StrExt for str {
         to_dot_case(self)
     }
 
+    #[cfg(feature = "case-no")]
+    fn to_no_case(&self) -> Cow<'_, str> {
+        to_no_case(self)
+    }
+
+    #[cfg(feature = "case-no")]
+    fn is_no_case(&self) -> bool {
+        is_no_case(self)
+    }
+
+    #[cfg(feature = "case-capital")]
+    fn to_capital_case(&self) -> Cow<'_, str> {
+        to_capital_case(self)
+    }
+
+    #[cfg(feature = "case-capital")]
+    fn is_capital_case(&self) -> bool {
+        is_capital_case(self)
+    }
+
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
+    ))]
+    fn capitalize_first(&self) -> Cow<'_, str> {
+        capitalize_first(self)
+    }
+
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
+    ))]
+    fn uncapitalize_first(&self) -> Cow<'_, str> {
+        uncapitalize_first(self)
+    }
+
+    #[cfg(feature = "case-pascal")]
+    fn to_studly_case(&self) -> Cow<'_, str> {
+        to_studly_case(self)
+    }
+
+    #[cfg(feature = "case-pascal")]
+    fn is_studly_case(&self) -> bool {
+        is_studly_case(self)
+    }
+
+    #[cfg(feature = "case-pascal")]
+    fn to_class_case(&self) -> Cow<'_, str> {
+        to_class_case(self)
+    }
+
+    #[cfg(feature = "case-pascal")]
+    fn is_class_case(&self) -> bool {
+        is_class_case(self)
+    }
+
     #[cfg(feature = "conventions")]
     fn tableize(&self) -> String {
         tableize(self)
+    }
+
+    #[cfg(feature = "conventions")]
+    fn to_table_case(&self) -> String {
+        to_table_case(self)
+    }
+
+    #[cfg(all(feature = "conventions", feature = "grammar"))]
+    fn is_table_case(&self) -> bool {
+        is_table_case(self)
     }
 
     #[cfg(feature = "conventions")]
@@ -502,7 +740,9 @@ impl StrExt for str {
         feature = "case-train",
         feature = "case-title",
         feature = "case-sentence",
-        feature = "case-dot"
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
     ))]
     fn swap_case(&self) -> String {
         swap_case(self)
@@ -519,17 +759,17 @@ impl StrExt for str {
     }
 
     #[cfg(feature = "grammar")]
-    fn to_plural(&self) -> String {
+    fn to_plural(&self) -> Cow<'_, str> {
         pluralize(self)
     }
 
     #[cfg(feature = "grammar")]
-    fn to_singular(&self) -> String {
+    fn to_singular(&self) -> Cow<'_, str> {
         singularize(self)
     }
 
     #[cfg(feature = "grammar")]
-    fn pluralize_with_count(&self, count: usize) -> String {
+    fn pluralize_with_count(&self, count: usize) -> Cow<'_, str> {
         pluralize_with_count(self, count)
     }
 
@@ -618,6 +858,56 @@ impl StrExt for str {
         unwrap_quotes(self)
     }
 
+    #[cfg(feature = "util-pad")]
+    fn prefix(&self, prefix_val: &str) -> String {
+        prefix(self, prefix_val)
+    }
+
+    #[cfg(feature = "util-pad")]
+    fn prefix_with_options(&self, prefix: &str, options: &AffixOptions) -> String {
+        prefix_with_options(self, prefix, options)
+    }
+
+    #[cfg(feature = "util-pad")]
+    fn remove_prefix(&self, prefix: &str) -> &str {
+        remove_prefix(self, prefix)
+    }
+
+    #[cfg(feature = "util-pad")]
+    fn remove_prefix_with_options<'a>(&'a self, prefix: &str, options: &AffixOptions) -> &'a str {
+        remove_prefix_with_options(self, prefix, options)
+    }
+
+    #[cfg(feature = "util-pad")]
+    fn suffix(&self, suffix_val: &str) -> String {
+        suffix(self, suffix_val)
+    }
+
+    #[cfg(feature = "util-pad")]
+    fn suffix_with_options(&self, suffix: &str, options: &AffixOptions) -> String {
+        suffix_with_options(self, suffix, options)
+    }
+
+    #[cfg(feature = "util-pad")]
+    fn remove_suffix(&self, suffix: &str) -> &str {
+        remove_suffix(self, suffix)
+    }
+
+    #[cfg(feature = "util-pad")]
+    fn remove_suffix_with_options<'a>(&'a self, suffix: &str, options: &AffixOptions) -> &'a str {
+        remove_suffix_with_options(self, suffix, options)
+    }
+
+    #[cfg(feature = "util-pad")]
+    fn ext(&self, extension: &str) -> String {
+        ext(self, extension)
+    }
+
+    #[cfg(feature = "util-pad")]
+    fn remove_extension(&self) -> &str {
+        remove_extension(self)
+    }
+
     #[cfg(feature = "util-slice")]
     fn before(&self, delimiter: &str) -> Cow<'_, str> {
         before(self, delimiter)
@@ -671,6 +961,36 @@ impl StrExt for str {
     #[cfg(feature = "util-slice")]
     fn is_empty_or_whitespace(&self) -> bool {
         is_empty_or_whitespace(self)
+    }
+
+    #[cfg(feature = "util-slice")]
+    fn starts_with_any(&self, needles: &[&str]) -> bool {
+        starts_with_any(self, needles)
+    }
+
+    #[cfg(feature = "util-slice")]
+    fn ends_with_any(&self, needles: &[&str]) -> bool {
+        ends_with_any(self, needles)
+    }
+
+    #[cfg(feature = "util-slice")]
+    fn replace_first(&self, from: &str, to: &str) -> String {
+        replace_first(self, from, to)
+    }
+
+    #[cfg(feature = "util-slice")]
+    fn replace_last(&self, from: &str, to: &str) -> String {
+        replace_last(self, from, to)
+    }
+
+    #[cfg(feature = "util-slice")]
+    fn remove(&self, needle: &str) -> String {
+        remove(self, needle)
+    }
+
+    #[cfg(feature = "util-slice")]
+    fn deduplicate(&self, character: char) -> Cow<'_, str> {
+        deduplicate(self, character)
     }
 
     #[cfg(feature = "util-format")]
@@ -786,5 +1106,45 @@ mod tests {
             "15m".parse_duration().unwrap(),
             std::time::Duration::from_secs(900)
         );
+        assert_eq!("foo_bar".to_no_case(), "foo bar");
+        assert!("foo bar".is_no_case());
+        assert_eq!("foo_bar".to_capital_case(), "Foo Bar");
+        assert!("Foo Bar".is_capital_case());
+        assert_eq!("hello".capitalize_first(), "Hello");
+        assert_eq!("Hello".uncapitalize_first(), "hello");
+        assert_eq!("user_id".to_studly_case(), "UserId");
+        assert!("UserId".is_studly_case());
+        assert_eq!("user_id".to_class_case(), "UserId");
+        assert!("UserId".is_class_case());
+        assert_eq!("user_role".to_table_case(), "user_roles");
+        assert!("user_roles".is_table_case());
+        assert_eq!("path".prefix("/"), "/path");
+        assert_eq!(
+            "path".prefix_with_options("/", &AffixOptions::new()),
+            "/path"
+        );
+        assert_eq!("/path".remove_prefix("/"), "path");
+        assert_eq!(
+            "/path".remove_prefix_with_options("/", &AffixOptions::new()),
+            "path"
+        );
+        assert_eq!("file".suffix(".rs"), "file.rs");
+        assert_eq!(
+            "file".suffix_with_options(".rs", &AffixOptions::new()),
+            "file.rs"
+        );
+        assert_eq!("file.rs".remove_suffix(".rs"), "file");
+        assert_eq!(
+            "file.rs".remove_suffix_with_options(".rs", &AffixOptions::new()),
+            "file"
+        );
+        assert_eq!("photo".ext("png"), "photo.png");
+        assert_eq!("photo.png".remove_extension(), "photo");
+        assert!("hello world".starts_with_any(&["hi", "hello"]));
+        assert!("hello world".ends_with_any(&["world", "earth"]));
+        assert_eq!("foo foo bar".replace_first("foo", "qux"), "qux foo bar");
+        assert_eq!("foo foo bar".replace_last("foo", "qux"), "foo qux bar");
+        assert_eq!("foo bar foo".remove("foo "), "bar foo");
+        assert_eq!("a///b".deduplicate('/'), "a/b");
     }
 }

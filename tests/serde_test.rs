@@ -1,8 +1,8 @@
 #![cfg(all(feature = "serde", feature = "full"))]
 
 use borno::{
-    Alignment, BytesOptions, BytesStandard, BytesUnit, ExcerptOptions, SentenceOptions,
-    SlugOptions, TruncateOptions, WordWrapOptions,
+    AffixOptions, Alignment, BytesOptions, BytesStandard, BytesUnit, ExcerptOptions,
+    SentenceOptions, SlugOptions, TruncateOptions, WordWrapOptions,
 };
 
 #[test]
@@ -56,4 +56,10 @@ fn test_serde_json_roundtrip() {
     let deserialized: BytesOptions =
         serde_json::from_str(&json).expect("deserialize bytes options");
     assert_eq!(bytes_opts, deserialized);
+
+    let affix_opts = AffixOptions::new().with_similar_words(["Car", "Cars"]);
+    let json = serde_json::to_string(&affix_opts).expect("serialize affix options");
+    let deserialized: AffixOptions =
+        serde_json::from_str(&json).expect("deserialize affix options");
+    assert_eq!(affix_opts, deserialized);
 }

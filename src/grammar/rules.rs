@@ -10,19 +10,28 @@ pub(crate) static IRREGULAR_NOUNS: &[(&str, &str)] = &[
     ("bacillus", "bacilli"),
     ("bacterium", "bacteria"),
     ("basis", "bases"),
+    ("bias", "biases"),
     ("cactus", "cacti"),
+    ("cache", "caches"),
+    ("canvas", "canvases"),
     ("child", "children"),
+    ("cliche", "cliches"),
+    ("corpus", "corpora"),
     ("crisis", "crises"),
     ("criterion", "criteria"),
     ("curriculum", "curricula"),
     ("datum", "data"),
     ("diagnosis", "diagnoses"),
     ("die", "dice"),
+    ("fez", "fezzes"),
     ("focus", "foci"),
     ("foot", "feet"),
     ("fungus", "fungi"),
+    ("gas", "gases"),
+    ("genus", "genera"),
     ("goose", "geese"),
     ("index", "indices"),
+    ("lens", "lenses"),
     ("louse", "lice"),
     ("man", "men"),
     ("matrix", "matrices"),
@@ -30,12 +39,14 @@ pub(crate) static IRREGULAR_NOUNS: &[(&str, &str)] = &[
     ("memorandum", "memoranda"),
     ("mouse", "mice"),
     ("move", "moves"),
+    ("niche", "niches"),
     ("nucleus", "nuclei"),
     ("ox", "oxen"),
     ("parenthesis", "parentheses"),
     ("person", "people"),
     ("phenomenon", "phenomena"),
     ("prognosis", "prognoses"),
+    ("quiche", "quiches"),
     ("quiz", "quizzes"),
     ("sex", "sexes"),
     ("stadium", "stadia"),
@@ -47,6 +58,7 @@ pub(crate) static IRREGULAR_NOUNS: &[(&str, &str)] = &[
     ("thesis", "theses"),
     ("tooth", "teeth"),
     ("vertex", "vertices"),
+    ("veto", "vetoes"),
     ("vortex", "vortices"),
     ("woman", "women"),
     ("zombie", "zombies"),
@@ -270,5 +282,88 @@ mod tests {
     fn test_suffix_rules_empty() {
         assert_eq!(pluralize_suffix(""), "");
         assert_eq!(singularize_suffix(""), "");
+    }
+
+    #[test]
+    fn test_all_suffix_and_irregular_rules() {
+        // -fe endings
+        assert_eq!(pluralize_suffix("knife"), "knives");
+        assert_eq!(pluralize_suffix("life"), "lives");
+        assert_eq!(pluralize_suffix("wife"), "wives");
+        assert_eq!(singularize_suffix("knives"), "knife");
+        assert_eq!(singularize_suffix("lives"), "life");
+        assert_eq!(singularize_suffix("wives"), "wife");
+
+        // -f endings with ves stems
+        let f_words = [
+            ("leaf", "leaves"),
+            ("half", "halves"),
+            ("wolf", "wolves"),
+            ("loaf", "loaves"),
+            ("shelf", "shelves"),
+            ("thief", "thieves"),
+            ("calf", "calves"),
+            ("elf", "elves"),
+            ("scarf", "scarves"),
+        ];
+        for (sing, plur) in f_words {
+            assert_eq!(pluralize_suffix(sing), plur);
+            assert_eq!(singularize_suffix(plur), sing);
+        }
+
+        // -ves ending that is not a stem falls through
+        assert_eq!(singularize_suffix("caves"), "cave");
+        assert_eq!(singularize_suffix("ves"), "ve");
+
+        // -y endings
+        assert_eq!(pluralize_suffix("category"), "categories");
+        assert_eq!(pluralize_suffix("day"), "days");
+        assert_eq!(pluralize_suffix("y"), "ys");
+        assert_eq!(singularize_suffix("categories"), "category");
+        assert_eq!(singularize_suffix("days"), "day");
+
+        // sibilants: ss, x, z, ch, sh
+        assert_eq!(pluralize_suffix("glass"), "glasses");
+        assert_eq!(pluralize_suffix("box"), "boxes");
+        assert_eq!(pluralize_suffix("quiz"), "quizes");
+        assert_eq!(pluralize_suffix("church"), "churches");
+        assert_eq!(pluralize_suffix("dish"), "dishes");
+        assert_eq!(singularize_suffix("glasses"), "glass");
+        assert_eq!(singularize_suffix("boxes"), "box");
+        assert_eq!(singularize_suffix("buzzes"), "buzz");
+        assert_eq!(singularize_suffix("churches"), "church");
+        assert_eq!(singularize_suffix("dishes"), "dish");
+
+        // -us endings
+        assert_eq!(pluralize_suffix("status"), "statuses");
+        assert_eq!(pluralize_suffix("virus"), "viruses");
+        assert_eq!(pluralize_suffix("bus"), "buses");
+        assert_eq!(singularize_suffix("statuses"), "status");
+        assert_eq!(singularize_suffix("viruses"), "virus");
+        assert_eq!(singularize_suffix("buses"), "bus");
+
+        // -o endings
+        let o_words = [
+            "hero", "potato", "tomato", "echo", "veto", "torpedo", "embargo",
+        ];
+        for word in o_words {
+            let plur = format!("{word}es");
+            assert_eq!(pluralize_suffix(word), plur);
+            assert_eq!(singularize_suffix(&plur), word);
+        }
+
+        // exceptions and non-inflecting singulars
+        assert_eq!(singularize_suffix("gas"), "gas");
+        assert_eq!(singularize_suffix("canvas"), "canvas");
+        assert_eq!(singularize_suffix("status"), "status");
+        assert_eq!(singularize_suffix("basis"), "basis");
+        assert_eq!(singularize_suffix("glass"), "glass");
+        assert_eq!(singularize_suffix("user"), "user");
+
+        // irregular lookups
+        assert_eq!(find_irregular_plural("person"), Some("people"));
+        assert_eq!(find_irregular_plural("nonexistent"), None);
+        assert_eq!(find_irregular_singular("people"), Some("person"));
+        assert_eq!(find_irregular_singular("nonexistent"), None);
     }
 }

@@ -21,7 +21,7 @@ use crate::{
 /// ```
 pub fn tableize(model_name: &str) -> String {
     let snake = to_snake_case(model_name);
-    pluralize(&snake)
+    pluralize(&snake).into_owned()
 }
 
 /// Converts a database table name into a conventional model class name.

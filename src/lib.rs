@@ -30,6 +30,8 @@ pub mod builder;
     feature = "case-title",
     feature = "case-sentence",
     feature = "case-dot",
+    feature = "case-no",
+    feature = "case-capital",
     feature = "conventions"
 ))]
 pub mod case;
@@ -46,6 +48,8 @@ pub mod case;
         feature = "case-title",
         feature = "case-sentence",
         feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital",
         feature = "conventions"
     ))
 ))]
@@ -72,6 +76,8 @@ pub mod utils;
 
 #[cfg(feature = "builder")]
 pub use builder::StrBuilder;
+#[cfg(all(feature = "conventions", feature = "grammar"))]
+pub use case::is_table_case;
 #[cfg(any(
     feature = "case-snake",
     feature = "case-screaming-snake",
@@ -81,22 +87,44 @@ pub use builder::StrBuilder;
     feature = "case-train",
     feature = "case-title",
     feature = "case-sentence",
-    feature = "case-dot"
+    feature = "case-dot",
+    feature = "case-no",
+    feature = "case-capital"
 ))]
 pub use case::swap_case;
+#[cfg(any(
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-camel",
+    feature = "case-pascal",
+    feature = "case-kebab",
+    feature = "case-train",
+    feature = "case-title",
+    feature = "case-sentence",
+    feature = "case-dot",
+    feature = "case-no",
+    feature = "case-capital"
+))]
+pub use case::{capitalize_first, lcfirst, ucfirst, uncapitalize_first};
 #[cfg(feature = "conventions")]
 pub use case::{
     classify, deconstantize, demodulize, foreign_key, foreign_key_with_suffix, headline, humanize,
-    is_foreign_key, is_foreign_key_with_suffix, tableize,
+    is_foreign_key, is_foreign_key_with_suffix, tableize, to_table_case,
 };
 #[cfg(feature = "case-camel")]
 pub use case::{is_camel_case, to_camel_case};
+#[cfg(feature = "case-capital")]
+pub use case::{is_capital_case, to_capital_case};
+#[cfg(feature = "case-pascal")]
+pub use case::{
+    is_class_case, is_pascal_case, is_studly_case, to_class_case, to_pascal_case, to_studly_case,
+};
 #[cfg(feature = "case-dot")]
 pub use case::{is_dot_case, to_dot_case};
 #[cfg(feature = "case-kebab")]
 pub use case::{is_kebab_case, to_kebab_case};
-#[cfg(feature = "case-pascal")]
-pub use case::{is_pascal_case, to_pascal_case};
+#[cfg(feature = "case-no")]
+pub use case::{is_no_case, to_no_case};
 #[cfg(feature = "case-screaming-snake")]
 pub use case::{is_screaming_snake_case, to_screaming_snake_case};
 #[cfg(feature = "case-sentence")]
@@ -112,12 +140,19 @@ pub use ext::StrExt;
 #[cfg(feature = "grammar")]
 pub use grammar::{
     Inflector, add_irregular, add_uncountable, is_plural, is_singular, pluralize,
-    pluralize_with_count, pluralize_with_count_inclusive, singularize,
+    pluralize_with_count, pluralize_with_count_inclusive, singularize, to_plural, to_singular,
 };
 #[cfg(all(feature = "grammar", feature = "regex"))]
 pub use grammar::{add_plural_rule, add_singular_rule};
 #[cfg(feature = "slug")]
 pub use slug::{SlugOptions, slugify, slugify_with_options};
+#[cfg(feature = "util-pad")]
+pub use utils::{
+    AffixOptions, ensure_wrap, ext, finish, pad_both, pad_end, pad_start, prefix,
+    prefix_with_options, remove_extension, remove_prefix, remove_prefix_with_options,
+    remove_suffix, remove_suffix_with_options, start, suffix, suffix_with_options, surround,
+    unwrap, unwrap_quotes, wrap,
+};
 #[cfg(feature = "util-text")]
 pub use utils::{
     Alignment, WordWrapOptions, html_escape, html_unescape, justify_columns, word_wrap,
@@ -139,11 +174,8 @@ pub use utils::{
 #[cfg(feature = "util-slice")]
 pub use utils::{
     after, after_last, before, before_last, between, between_first, chop_end, chop_start,
-    contains_all, contains_any, is_empty_or_whitespace,
-};
-#[cfg(feature = "util-pad")]
-pub use utils::{
-    ensure_wrap, finish, pad_both, pad_end, pad_start, start, surround, unwrap, unwrap_quotes, wrap,
+    contains_all, contains_any, deduplicate, ends_with_any, is_empty_or_whitespace, remove,
+    replace_first, replace_last, starts_with_any,
 };
 #[cfg(feature = "util-interpolate")]
 pub use utils::{interpolate, interpolate_pairs};
@@ -162,6 +194,8 @@ pub mod prelude {
     pub use super::grammar::Inflector;
     #[cfg(feature = "slug")]
     pub use super::slug::SlugOptions;
+    #[cfg(feature = "util-pad")]
+    pub use super::utils::AffixOptions;
     #[cfg(feature = "util-format")]
     pub use super::utils::SentenceOptions;
     #[cfg(feature = "util-text")]

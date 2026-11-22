@@ -387,4 +387,133 @@ fn test_bytes_duration_title_coverage_boosters() {
     // Title case APA edge cases
     assert!(!is_title_case_apa("Hello W@rld"));
     assert!(!is_title_case_apa("HeLLo World"));
+
+    // Case scalar helpers edge cases
+    assert_eq!(borno::case::capitalize_first(""), "");
+    assert_eq!(borno::case::capitalize_first("Hello"), "Hello");
+    assert!(matches!(
+        borno::case::capitalize_first("Hello"),
+        std::borrow::Cow::Borrowed(_)
+    ));
+    assert_eq!(borno::case::uncapitalize_first(""), "");
+    assert_eq!(borno::case::uncapitalize_first("hello"), "hello");
+    assert!(matches!(
+        borno::case::uncapitalize_first("hello"),
+        std::borrow::Cow::Borrowed(_)
+    ));
+
+    // Grammar compound zero-allocation borrowing
+    let comp_uncount = pluralize("user_information");
+    assert_eq!(comp_uncount, "user_information");
+    assert!(matches!(comp_uncount, std::borrow::Cow::Borrowed(_)));
+
+    let camel_uncount = pluralize("userInformation");
+    assert_eq!(camel_uncount, "userInformation");
+    assert!(matches!(camel_uncount, std::borrow::Cow::Borrowed(_)));
+
+    let camel_sing = singularize("userProfile");
+    assert_eq!(camel_sing, "userProfile");
+    assert!(matches!(camel_sing, std::borrow::Cow::Borrowed(_)));
+
+    // StrBuilder conditional branches
+    fn append_x(b: StrBuilder) -> StrBuilder {
+        b.append("x")
+    }
+    assert_eq!(
+        StrBuilder::new("val").when(true, append_x).into_string(),
+        "valx"
+    );
+    assert_eq!(
+        StrBuilder::new("val").when(false, append_x).into_string(),
+        "val"
+    );
+    assert_eq!(
+        StrBuilder::new("val")
+            .when_not_empty(append_x)
+            .into_string(),
+        "valx"
+    );
+    assert_eq!(
+        StrBuilder::new("").when_not_empty(append_x).into_string(),
+        ""
+    );
+    assert_eq!(StrBuilder::new("").when_empty(append_x).into_string(), "x");
+    assert_eq!(
+        StrBuilder::new("val").when_empty(append_x).into_string(),
+        "val"
+    );
+
+    // Affix edge cases & case-sensitive matching
+    use borno::utils::{
+        AffixOptions, ext, remove_extension, remove_prefix_with_options, remove_suffix_with_options,
+    };
+
+    let case_sens = AffixOptions::new().with_ignore_case(false);
+    assert_eq!(
+        remove_suffix_with_options("user_Controller", "Controller", &case_sens),
+        "user"
+    );
+    assert_eq!(
+        remove_suffix_with_options("userController", "Controller", &case_sens),
+        "user"
+    );
+    assert_eq!(
+        remove_suffix_with_options("user_controller", "Controller", &case_sens),
+        "user_controller"
+    );
+    assert_eq!(
+        remove_suffix_with_options("user", "Controller", &case_sens),
+        "user"
+    );
+    assert_eq!(remove_suffix_with_options("user", "", &case_sens), "user");
+
+    let case_sens_sim = AffixOptions::new()
+        .with_ignore_case(false)
+        .with_similar_words(["email"]);
+    assert_eq!(
+        remove_suffix_with_options("verify_email", "mail", &case_sens_sim),
+        "verify_email"
+    );
+    assert_eq!(
+        remove_suffix_with_options("verify_Email", "mail", &case_sens_sim),
+        "verify_E"
+    );
+
+    assert_eq!(
+        remove_prefix_with_options("app_User", "app", &case_sens),
+        "User"
+    );
+    assert_eq!(
+        remove_prefix_with_options("appUser", "app", &case_sens),
+        "User"
+    );
+    assert_eq!(
+        remove_prefix_with_options("App_User", "app", &case_sens),
+        "App_User"
+    );
+    assert_eq!(
+        remove_prefix_with_options("user", "app", &case_sens),
+        "user"
+    );
+    assert_eq!(remove_prefix_with_options("user", "", &case_sens), "user");
+
+    // Similar words longer than input and case-sensitive prefix similar check
+    let long_sim = AffixOptions::new().with_similar_words(["much_longer_than_input"]);
+    assert_eq!(remove_suffix_with_options("short", "rt", &long_sim), "sho");
+    assert_eq!(remove_prefix_with_options("hi", "h", &long_sim), "i");
+
+    let case_sens_prefix_sim = AffixOptions::new()
+        .with_ignore_case(false)
+        .with_similar_words(["Maker"]);
+    assert_eq!(
+        remove_prefix_with_options("MakerService", "other", &case_sens_prefix_sim),
+        "MakerService"
+    );
+
+    assert_eq!(remove_extension(".gitignore"), ".gitignore");
+    assert_eq!(remove_extension("path/to/.bashrc"), "path/to/.bashrc");
+    assert_eq!(ext(".gitignore", "txt"), ".gitignore.txt");
+
+    // Deduplicate empty string
+    assert_eq!(borno::utils::deduplicate("", '/'), "");
 }

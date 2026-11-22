@@ -2,18 +2,10 @@
 
 use std::{fmt, ops::Deref};
 
-#[cfg(any(
-    feature = "case-snake",
-    feature = "case-screaming-snake",
-    feature = "case-camel",
-    feature = "case-pascal",
-    feature = "case-kebab",
-    feature = "case-train",
-    feature = "case-title",
-    feature = "case-sentence",
-    feature = "case-dot"
-))]
-use crate::case::swap_case;
+#[cfg(feature = "case-capital")]
+use crate::case::capital::to_capital_case;
+#[cfg(feature = "case-no")]
+use crate::case::no::to_no_case;
 #[cfg(feature = "case-camel")]
 use crate::case::to_camel_case;
 #[cfg(feature = "case-dot")]
@@ -46,6 +38,12 @@ use crate::utils::deordinalize;
 use crate::utils::interpolate;
 #[cfg(feature = "util-mask")]
 use crate::utils::mask;
+#[cfg(feature = "util-pad")]
+use crate::utils::{
+    AffixOptions, ensure_wrap, ext, finish, prefix, prefix_with_options, remove_extension,
+    remove_prefix, remove_prefix_with_options, remove_suffix, remove_suffix_with_options, start,
+    suffix, suffix_with_options, surround, unwrap_quotes, wrap,
+};
 #[cfg(feature = "util-truncate")]
 use crate::utils::{TruncateOptions, truncate, words};
 #[cfg(feature = "util-text")]
@@ -55,9 +53,8 @@ use crate::utils::{
 #[cfg(feature = "util-slice")]
 use crate::utils::{
     after, after_last, before, before_last, between, between_first, chop_end, chop_start,
+    deduplicate, ends_with_any, remove, replace_first, replace_last, starts_with_any,
 };
-#[cfg(feature = "util-pad")]
-use crate::utils::{ensure_wrap, finish, start, surround, unwrap_quotes, wrap};
 #[cfg(feature = "util-normalize")]
 use crate::utils::{normalize_slashes, squish};
 
@@ -131,6 +128,70 @@ impl StrBuilder {
         self
     }
 
+    /// Transforms the inner string into `no case`.
+    #[cfg(feature = "case-no")]
+    pub fn no_case(mut self) -> Self {
+        self.value = to_no_case(&self.value).into_owned();
+        self
+    }
+
+    /// Transforms the inner string into `Capital Case`.
+    #[cfg(feature = "case-capital")]
+    pub fn capital_case(mut self) -> Self {
+        self.value = to_capital_case(&self.value).into_owned();
+        self
+    }
+
+    /// Capitalizes only the first Unicode scalar character of the inner string.
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
+    ))]
+    pub fn capitalize_first(mut self) -> Self {
+        self.value = crate::case::capitalize_first(&self.value).into_owned();
+        self
+    }
+
+    /// Lowercases only the first Unicode scalar character of the inner string.
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
+    ))]
+    pub fn uncapitalize_first(mut self) -> Self {
+        self.value = crate::case::uncapitalize_first(&self.value).into_owned();
+        self
+    }
+
+    /// Alias for [`Self::pascal_case`].
+    #[cfg(feature = "case-pascal")]
+    pub fn studly_case(self) -> Self {
+        self.pascal_case()
+    }
+
+    /// Alias for [`Self::pascal_case`].
+    #[cfg(feature = "case-pascal")]
+    pub fn class_case(self) -> Self {
+        self.pascal_case()
+    }
+
     /// Inverts character cases throughout the inner string.
     #[cfg(any(
         feature = "case-snake",
@@ -141,10 +202,12 @@ impl StrBuilder {
         feature = "case-train",
         feature = "case-title",
         feature = "case-sentence",
-        feature = "case-dot"
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
     ))]
     pub fn swap_case(mut self) -> Self {
-        self.value = swap_case(&self.value);
+        self.value = crate::case::swap_case(&self.value);
         self
     }
 
@@ -167,6 +230,12 @@ impl StrBuilder {
     pub fn tableize(mut self) -> Self {
         self.value = tableize(&self.value);
         self
+    }
+
+    /// Alias for [`Self::tableize`].
+    #[cfg(feature = "conventions")]
+    pub fn table_case(self) -> Self {
+        self.tableize()
     }
 
     /// Converts a database table name into a conventional model class name.
@@ -214,21 +283,33 @@ impl StrBuilder {
     /// Pluralizes the inner string.
     #[cfg(feature = "grammar")]
     pub fn pluralize(mut self) -> Self {
-        self.value = pluralize(&self.value);
+        self.value = pluralize(&self.value).into_owned();
         self
+    }
+
+    /// Alias for [`Self::pluralize`].
+    #[cfg(feature = "grammar")]
+    pub fn to_plural(self) -> Self {
+        self.pluralize()
     }
 
     /// Singularizes the inner string.
     #[cfg(feature = "grammar")]
     pub fn singularize(mut self) -> Self {
-        self.value = singularize(&self.value);
+        self.value = singularize(&self.value).into_owned();
         self
+    }
+
+    /// Alias for [`Self::singularize`].
+    #[cfg(feature = "grammar")]
+    pub fn to_singular(self) -> Self {
+        self.singularize()
     }
 
     /// Inflects the inner string based on the given count.
     #[cfg(feature = "grammar")]
     pub fn pluralize_with_count(mut self, count: usize) -> Self {
-        self.value = pluralize_with_count(&self.value, count);
+        self.value = pluralize_with_count(&self.value, count).into_owned();
         self
     }
 
@@ -436,6 +517,172 @@ impl StrBuilder {
     #[cfg(feature = "util-interpolate")]
     pub fn interpolate(mut self, params: &[(&str, &str)]) -> Self {
         self.value = interpolate(&self.value, params);
+        self
+    }
+
+    /// Conditionally executes an operation on the builder.
+    pub fn when(self, condition: bool, op: impl FnOnce(Self) -> Self) -> Self {
+        if condition { op(self) } else { self }
+    }
+
+    /// Executes an operation on the builder if the inner string is not empty.
+    pub fn when_not_empty(self, op: impl FnOnce(Self) -> Self) -> Self {
+        if !self.value.is_empty() {
+            op(self)
+        } else {
+            self
+        }
+    }
+
+    /// Executes an operation on the builder if the inner string is empty.
+    pub fn when_empty(self, op: impl FnOnce(Self) -> Self) -> Self {
+        if self.value.is_empty() {
+            op(self)
+        } else {
+            self
+        }
+    }
+
+    /// Inspects the builder state without mutating or breaking the chain.
+    pub fn tap(self, op: impl FnOnce(&Self)) -> Self {
+        op(&self);
+        self
+    }
+
+    /// Pipes the builder into an arbitrary transformation function.
+    pub fn pipe<R>(self, op: impl FnOnce(Self) -> R) -> R {
+        op(self)
+    }
+
+    /// Returns `true` if the inner string is empty.
+    pub fn is_empty(&self) -> bool {
+        self.value.is_empty()
+    }
+
+    /// Returns `true` if the inner string is not empty.
+    pub fn is_not_empty(&self) -> bool {
+        !self.value.is_empty()
+    }
+
+    /// Checks if the inner string starts with any of the needles.
+    #[cfg(feature = "util-slice")]
+    pub fn starts_with_any(&self, needles: &[&str]) -> bool {
+        starts_with_any(&self.value, needles)
+    }
+
+    /// Checks if the inner string ends with any of the needles.
+    #[cfg(feature = "util-slice")]
+    pub fn ends_with_any(&self, needles: &[&str]) -> bool {
+        ends_with_any(&self.value, needles)
+    }
+
+    /// Replaces the first occurrence of a substring.
+    #[cfg(feature = "util-slice")]
+    pub fn replace_first(mut self, from: &str, to: &str) -> Self {
+        self.value = replace_first(&self.value, from, to);
+        self
+    }
+
+    /// Replaces the last occurrence of a substring.
+    #[cfg(feature = "util-slice")]
+    pub fn replace_last(mut self, from: &str, to: &str) -> Self {
+        self.value = replace_last(&self.value, from, to);
+        self
+    }
+
+    /// Removes all occurrences of the specified needle.
+    #[cfg(feature = "util-slice")]
+    pub fn remove(mut self, needle: &str) -> Self {
+        self.value = remove(&self.value, needle);
+        self
+    }
+
+    /// Deduplicates consecutive occurrences of a character.
+    #[cfg(feature = "util-slice")]
+    pub fn deduplicate(mut self, character: char) -> Self {
+        self.value = deduplicate(&self.value, character).into_owned();
+        self
+    }
+
+    /// Adds a prefix to the inner string, replacing any existing occurrence.
+    #[cfg(feature = "util-pad")]
+    pub fn prefix(mut self, prefix_val: &str) -> Self {
+        self.value = prefix(&self.value, prefix_val);
+        self
+    }
+
+    /// Adds a prefix to the inner string with configurable options.
+    #[cfg(feature = "util-pad")]
+    pub fn prefix_with_options(mut self, prefix_val: &str, options: &AffixOptions) -> Self {
+        self.value = prefix_with_options(&self.value, prefix_val, options);
+        self
+    }
+
+    /// Removes a prefix from the inner string with default options.
+    #[cfg(feature = "util-pad")]
+    pub fn remove_prefix(mut self, prefix_val: &str) -> Self {
+        self.value = remove_prefix(&self.value, prefix_val).to_string();
+        self
+    }
+
+    /// Removes a prefix from the inner string with configurable options.
+    #[cfg(feature = "util-pad")]
+    pub fn remove_prefix_with_options(mut self, prefix_val: &str, options: &AffixOptions) -> Self {
+        self.value = remove_prefix_with_options(&self.value, prefix_val, options).to_string();
+        self
+    }
+
+    /// Adds a suffix to the inner string, replacing any existing occurrence.
+    #[cfg(feature = "util-pad")]
+    pub fn suffix(mut self, suffix_val: &str) -> Self {
+        self.value = suffix(&self.value, suffix_val);
+        self
+    }
+
+    /// Adds a suffix to the inner string with configurable options.
+    #[cfg(feature = "util-pad")]
+    pub fn suffix_with_options(mut self, suffix_val: &str, options: &AffixOptions) -> Self {
+        self.value = suffix_with_options(&self.value, suffix_val, options);
+        self
+    }
+
+    /// Removes a suffix from the inner string with default options.
+    #[cfg(feature = "util-pad")]
+    pub fn remove_suffix(mut self, suffix_val: &str) -> Self {
+        self.value = remove_suffix(&self.value, suffix_val).to_string();
+        self
+    }
+
+    /// Removes a suffix from the inner string with configurable options.
+    #[cfg(feature = "util-pad")]
+    pub fn remove_suffix_with_options(mut self, suffix_val: &str, options: &AffixOptions) -> Self {
+        self.value = remove_suffix_with_options(&self.value, suffix_val, options).to_string();
+        self
+    }
+
+    /// Sets or replaces the file extension of the inner string.
+    #[cfg(feature = "util-pad")]
+    pub fn ext(mut self, extension: &str) -> Self {
+        self.value = ext(&self.value, extension);
+        self
+    }
+
+    /// Strips the file extension from the inner string.
+    #[cfg(feature = "util-pad")]
+    pub fn remove_extension(mut self) -> Self {
+        self.value = remove_extension(&self.value).to_string();
+        self
+    }
+
+    /// Appends a string slice to the inner string.
+    pub fn append(mut self, text: &str) -> Self {
+        self.value.push_str(text);
+        self
+    }
+
+    /// Prepends a string slice to the inner string.
+    pub fn prepend(mut self, text: &str) -> Self {
+        self.value.insert_str(0, text);
         self
     }
 
@@ -695,5 +942,226 @@ mod tests {
 
         let unwrapped_q = StrBuilder::new("\"quoted\"").unwrap_quotes().into_string();
         assert_eq!(unwrapped_q, "quoted");
+
+        let app = StrBuilder::new("hello").append(" world").into_string();
+        assert_eq!(app, "hello world");
+
+        let prep = StrBuilder::new("world").prepend("hello ").into_string();
+        assert_eq!(prep, "hello world");
+
+        fn append_exclamation(b: StrBuilder) -> StrBuilder {
+            b.append("!")
+        }
+        let flow_t = StrBuilder::new("item")
+            .when(true, append_exclamation)
+            .into_string();
+        assert_eq!(flow_t, "item!");
+
+        let flow_f = StrBuilder::new("item")
+            .when(false, append_exclamation)
+            .into_string();
+        assert_eq!(flow_f, "item");
+
+        let ne_t = StrBuilder::new("item")
+            .when_not_empty(append_exclamation)
+            .into_string();
+        assert_eq!(ne_t, "item!");
+
+        let ne_f = StrBuilder::new("")
+            .when_not_empty(append_exclamation)
+            .into_string();
+        assert_eq!(ne_f, "");
+
+        let e_t = StrBuilder::new("")
+            .when_empty(append_exclamation)
+            .into_string();
+        assert_eq!(e_t, "!");
+
+        let e_f = StrBuilder::new("item")
+            .when_empty(append_exclamation)
+            .into_string();
+        assert_eq!(e_f, "item");
+
+        let aft = StrBuilder::new("foo/bar/baz").after("/").into_string();
+        assert_eq!(aft, "bar/baz");
+
+        let bef = StrBuilder::new("foo/bar/baz").before("/").into_string();
+        assert_eq!(bef, "foo");
+
+        let aft_last = StrBuilder::new("foo/bar/baz").after_last("/").into_string();
+        assert_eq!(aft_last, "baz");
+
+        let bef_last = StrBuilder::new("foo/bar/baz")
+            .before_last("/")
+            .into_string();
+        assert_eq!(bef_last, "foo/bar");
+
+        let btw = StrBuilder::new("[hello]").between("[", "]").into_string();
+        assert_eq!(btw, "hello");
+
+        let btw_f = StrBuilder::new("[a][b]")
+            .between_first("[", "]")
+            .into_string();
+        assert_eq!(btw_f, "a");
+
+        let ch_s = StrBuilder::new("/path").chop_start("/").into_string();
+        assert_eq!(ch_s, "path");
+
+        let ch_e = StrBuilder::new("path/").chop_end("/").into_string();
+        assert_eq!(ch_e, "path");
+
+        let dmod = StrBuilder::new("App::Models::User")
+            .demodulize()
+            .into_string();
+        assert_eq!(dmod, "User");
+
+        let dconst = StrBuilder::new("App::Models::User")
+            .deconstantize()
+            .into_string();
+        assert_eq!(dconst, "App::Models");
+
+        let deord = StrBuilder::new("1st").deordinalize().into_string();
+        assert_eq!(deord, "1");
+
+        let t_apa = StrBuilder::new("the lord of the rings")
+            .title_case_apa()
+            .into_string();
+        assert_eq!(t_apa, "The Lord of the Rings");
+
+        let tr_s = StrBuilder::new("  hello").trim_start().into_string();
+        assert_eq!(tr_s, "hello");
+
+        let tr_e = StrBuilder::new("hello  ").trim_end().into_string();
+        assert_eq!(tr_e, "hello");
+
+        let lc = StrBuilder::new("HELLO").lowercase().into_string();
+        assert_eq!(lc, "hello");
+
+        let uc = StrBuilder::new("hello").uppercase().into_string();
+        assert_eq!(uc, "HELLO");
+
+        let sc = StrBuilder::new("Hello World").swap_case().into_string();
+        assert_eq!(sc, "hELLO wORLD");
+
+        let ww_opt = StrBuilder::new("one two three")
+            .word_wrap_with_options(&WordWrapOptions::new(5))
+            .into_string();
+        assert_eq!(ww_opt, "one\ntwo\nthree");
+
+        let pl_inc = StrBuilder::new("item")
+            .pluralize_with_count_inclusive(3)
+            .into_string();
+        assert_eq!(pl_inc, "3 items");
+
+        let r_pref_opt = StrBuilder::new("ApiUser")
+            .remove_prefix_with_options("Api", &AffixOptions::new())
+            .into_string();
+        assert_eq!(r_pref_opt, "User");
+
+        let r_suff_opt = StrBuilder::new("UserController")
+            .remove_suffix_with_options("Controller", &AffixOptions::new())
+            .into_string();
+        assert_eq!(r_suff_opt, "User");
+
+        let screaming = StrBuilder::from("user_id").screaming_snake_case();
+        assert_eq!(screaming.as_str(), "USER_ID");
+        assert_eq!(format!("{screaming}"), "USER_ID");
+        assert_eq!(screaming.as_ref(), "USER_ID");
+        assert_eq!(&*screaming, "USER_ID");
+
+        let from_str: StrBuilder = "test".into();
+        assert_eq!(from_str.into_string(), "test");
+
+        let from_string: StrBuilder = String::from("test").into();
+        assert_eq!(from_string.into_string(), "test");
+
+        let snake = StrBuilder::new("UserId").snake_case().into_string();
+        assert_eq!(snake, "user_id");
+
+        let kebab = StrBuilder::new("user_id").kebab_case().into_string();
+        assert_eq!(kebab, "user-id");
+
+        let train = StrBuilder::new("user_id").train_case().into_string();
+        assert_eq!(train, "User-Id");
+
+        let title = StrBuilder::new("user_id").title_case().into_string();
+        assert_eq!(title, "User Id");
+
+        let sentence = StrBuilder::new("user_id").sentence_case().into_string();
+        assert_eq!(sentence, "User id");
+
+        let no_c = StrBuilder::new("UserProfile").no_case().into_string();
+        assert_eq!(no_c, "user profile");
+
+        let cap_c = StrBuilder::new("user_profile").capital_case().into_string();
+        assert_eq!(cap_c, "User Profile");
+
+        let cap_f = StrBuilder::new("hello").capitalize_first().into_string();
+        assert_eq!(cap_f, "Hello");
+
+        let uncap_f = StrBuilder::new("Hello").uncapitalize_first().into_string();
+        assert_eq!(uncap_f, "hello");
+
+        let studly = StrBuilder::new("user_id").studly_case().into_string();
+        assert_eq!(studly, "UserId");
+
+        let cls = StrBuilder::new("user_id").class_case().into_string();
+        assert_eq!(cls, "UserId");
+
+        let tbl = StrBuilder::new("UserProfile").table_case().into_string();
+        assert_eq!(tbl, "user_profiles");
+
+        let to_pl = StrBuilder::new("user").to_plural().into_string();
+        assert_eq!(to_pl, "users");
+
+        let to_sing = StrBuilder::new("users").to_singular().into_string();
+        assert_eq!(to_sing, "user");
+
+        let classify = StrBuilder::new("users").classify().into_string();
+        assert_eq!(classify, "User");
+
+        let tableize = StrBuilder::new("User").tableize().into_string();
+        assert_eq!(tableize, "users");
+
+        let fk = StrBuilder::new("User").foreign_key().into_string();
+        assert_eq!(fk, "user_id");
+
+        let mut tapped = false;
+        let t = StrBuilder::new("v").tap(|_| tapped = true).into_string();
+        assert!(tapped);
+        assert_eq!(t, "v");
+
+        let piped = StrBuilder::new("hello").pipe(|b| b.into_string().len());
+        assert_eq!(piped, 5);
+
+        let chk = StrBuilder::new("api/v1");
+        assert!(!chk.is_empty());
+        assert!(chk.is_not_empty());
+        assert!(chk.starts_with_any(&["api", "web"]));
+        assert!(chk.ends_with_any(&["v1", "v2"]));
+
+        let rep = StrBuilder::new("a b a c")
+            .replace_first("a", "x")
+            .replace_last("a", "y")
+            .remove("b ")
+            .into_string();
+        assert_eq!(rep, "x y c");
+
+        let dedup = StrBuilder::new("a///b").deduplicate('/').into_string();
+        assert_eq!(dedup, "a/b");
+
+        let aff = StrBuilder::new("Controller")
+            .prefix("User")
+            .prefix_with_options("Api", &AffixOptions::new())
+            .suffix("Ext")
+            .suffix_with_options(".rs", &AffixOptions::new())
+            .remove_prefix("Api")
+            .remove_prefix_with_options("User", &AffixOptions::new())
+            .remove_suffix(".rs")
+            .remove_suffix_with_options("Ext", &AffixOptions::new())
+            .ext("rs")
+            .remove_extension()
+            .into_string();
+        assert_eq!(aff, "Controller");
     }
 }

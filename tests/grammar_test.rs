@@ -1,6 +1,6 @@
 #![cfg(all(feature = "grammar", feature = "ext"))]
 
-use borno::{StrExt, grammar::*};
+use borno::{StrExt, grammar::*, to_plural, to_singular};
 
 #[test]
 fn test_irregular_roundtrip() {
@@ -39,6 +39,18 @@ fn test_irregular_roundtrip() {
         ("medium", "media"),
         ("bacterium", "bacteria"),
         ("curriculum", "curricula"),
+        ("bias", "biases"),
+        ("cache", "caches"),
+        ("canvas", "canvases"),
+        ("cliche", "cliches"),
+        ("corpus", "corpora"),
+        ("fez", "fezzes"),
+        ("gas", "gases"),
+        ("genus", "genera"),
+        ("lens", "lenses"),
+        ("niche", "niches"),
+        ("quiche", "quiches"),
+        ("veto", "vetoes"),
     ];
 
     for (singular, plural) in pairs {
@@ -248,4 +260,27 @@ fn test_global_inflector_registration() {
         assert!(add_plural_rule(r"[invalid", "peeps").is_err());
         assert!(add_singular_rule(r"[invalid", "peep").is_err());
     }
+}
+
+#[test]
+fn test_inflection_cow_borrowed() {
+    let uncount = "information";
+    let res = pluralize(uncount);
+    assert!(matches!(res, std::borrow::Cow::Borrowed(_)));
+    let sing_res = singularize(uncount);
+    assert!(matches!(sing_res, std::borrow::Cow::Borrowed(_)));
+
+    let singular_word = "user";
+    let sing_unchanged = singularize(singular_word);
+    assert!(matches!(sing_unchanged, std::borrow::Cow::Borrowed(_)));
+
+    let series_word = "series";
+    let plur_unchanged = pluralize(series_word);
+    assert!(matches!(plur_unchanged, std::borrow::Cow::Borrowed(_)));
+}
+
+#[test]
+fn test_top_level_inflection_aliases() {
+    assert_eq!(to_plural("user"), "users");
+    assert_eq!(to_singular("users"), "user");
 }

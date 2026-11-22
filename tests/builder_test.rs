@@ -142,4 +142,103 @@ fn test_builder_all_methods() {
 
     let from_string: StrBuilder = String::from("test").into();
     assert_eq!(from_string.into_string(), "test");
+
+    let no_c = StrBuilder::new("UserProfile").no_case().into_string();
+    assert_eq!(no_c, "user profile");
+
+    let cap_c = StrBuilder::new("user_profile").capital_case().into_string();
+    assert_eq!(cap_c, "User Profile");
+
+    let cap_f = StrBuilder::new("hello").capitalize_first().into_string();
+    assert_eq!(cap_f, "Hello");
+
+    let uncap_f = StrBuilder::new("Hello").uncapitalize_first().into_string();
+    assert_eq!(uncap_f, "hello");
+
+    let studly = StrBuilder::new("user_id").studly_case().into_string();
+    assert_eq!(studly, "UserId");
+
+    let cls = StrBuilder::new("user_id").class_case().into_string();
+    assert_eq!(cls, "UserId");
+
+    let tbl = StrBuilder::new("UserProfile").table_case().into_string();
+    assert_eq!(tbl, "user_profiles");
+
+    let to_pl = StrBuilder::new("user").to_plural().into_string();
+    assert_eq!(to_pl, "users");
+
+    let to_sing = StrBuilder::new("users").to_singular().into_string();
+    assert_eq!(to_sing, "user");
+}
+
+#[test]
+fn test_builder_flow_control_and_affix() {
+    fn append_bang(b: StrBuilder) -> StrBuilder {
+        b.append("!")
+    }
+    let b_t = StrBuilder::new("button")
+        .when(true, append_bang)
+        .into_string();
+    assert_eq!(b_t, "button!");
+
+    let b_f = StrBuilder::new("button")
+        .when(false, append_bang)
+        .into_string();
+    assert_eq!(b_f, "button");
+
+    let empty_t = StrBuilder::new("").when_empty(append_bang).into_string();
+    assert_eq!(empty_t, "!");
+
+    let empty_f = StrBuilder::new("val").when_empty(append_bang).into_string();
+    assert_eq!(empty_f, "val");
+
+    let not_empty_t = StrBuilder::new("content")
+        .when_not_empty(append_bang)
+        .into_string();
+    assert_eq!(not_empty_t, "content!");
+
+    let not_empty_f = StrBuilder::new("")
+        .when_not_empty(append_bang)
+        .into_string();
+    assert_eq!(not_empty_f, "");
+
+    let mut tapped = false;
+    let tapped_val = StrBuilder::new("val").tap(|_| tapped = true).into_string();
+    assert!(tapped);
+    assert_eq!(tapped_val, "val");
+
+    let piped = StrBuilder::new("hello").pipe(|builder| builder.into_string().to_uppercase());
+    assert_eq!(piped, "HELLO");
+
+    let inspect_b = StrBuilder::new("hello world");
+    assert!(!inspect_b.is_empty());
+    assert!(inspect_b.is_not_empty());
+    assert!(inspect_b.starts_with_any(&["hi", "hello"]));
+    assert!(inspect_b.ends_with_any(&["world", "earth"]));
+
+    let affixes = StrBuilder::new("User")
+        .suffix("Controller")
+        .prefix("Api")
+        .ext("rs")
+        .into_string();
+    assert_eq!(affixes, "ApiUserController.rs");
+
+    let stripped = StrBuilder::new("ApiUserController.rs")
+        .remove_prefix("Api")
+        .remove_suffix("Controller.rs")
+        .into_string();
+    assert_eq!(stripped, "User");
+
+    let ext_stripped = StrBuilder::new("archive.tar.gz")
+        .remove_extension()
+        .into_string();
+    assert_eq!(ext_stripped, "archive.tar");
+
+    let replaced = StrBuilder::new("foo bar foo baz")
+        .replace_first("foo", "qux")
+        .replace_last("foo", "qux")
+        .remove("qux ")
+        .deduplicate('o')
+        .into_string();
+    assert_eq!(replaced, "bar baz");
 }

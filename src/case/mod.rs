@@ -2,12 +2,16 @@
 
 #[cfg(feature = "case-camel")]
 pub mod camel;
+#[cfg(feature = "case-capital")]
+pub mod capital;
 #[cfg(feature = "conventions")]
 pub mod conventions;
 #[cfg(feature = "case-dot")]
 pub mod dot;
 #[cfg(feature = "case-kebab")]
 pub mod kebab;
+#[cfg(feature = "case-no")]
+pub mod no;
 #[cfg(feature = "case-pascal")]
 pub mod pascal;
 #[cfg(feature = "case-sentence")]
@@ -19,8 +23,12 @@ pub mod title;
 #[cfg(feature = "case-train")]
 pub mod train;
 
+use std::borrow::Cow;
+
 #[cfg(feature = "case-camel")]
 pub use camel::{is_camel_case, to_camel_case};
+#[cfg(feature = "case-capital")]
+pub use capital::{is_capital_case, to_capital_case};
 #[cfg(feature = "conventions")]
 pub use conventions::{
     classify, deconstantize, demodulize, foreign_key, foreign_key_with_suffix, headline, humanize,
@@ -30,6 +38,8 @@ pub use conventions::{
 pub use dot::{is_dot_case, to_dot_case};
 #[cfg(feature = "case-kebab")]
 pub use kebab::{is_kebab_case, to_kebab_case};
+#[cfg(feature = "case-no")]
+pub use no::{is_no_case, to_no_case};
 #[cfg(feature = "case-pascal")]
 pub use pascal::{is_pascal_case, to_pascal_case};
 #[cfg(feature = "case-sentence")]
@@ -42,6 +52,116 @@ pub use snake::{is_snake_case, to_snake_case};
 pub use title::{is_title_case, is_title_case_apa, to_title_case, to_title_case_apa};
 #[cfg(feature = "case-train")]
 pub use train::{is_train_case, to_train_case};
+
+/// Capitalizes only the first Unicode scalar character of a string slice without altering the rest.
+///
+/// Returns `Cow::Borrowed` with zero allocations if the input already begins with an uppercase character or is empty.
+///
+/// # Examples
+/// ```
+/// use borno::case::capitalize_first;
+///
+/// assert_eq!(capitalize_first("hello world"), "Hello world");
+/// assert_eq!(capitalize_first("Hello World"), "Hello World");
+/// assert_eq!(capitalize_first(""), "");
+/// ```
+pub fn capitalize_first(input: &str) -> Cow<'_, str> {
+    let mut chars = input.chars();
+    let Some(first_char) = chars.next() else {
+        return Cow::Borrowed("");
+    };
+    if first_char.is_uppercase() {
+        return Cow::Borrowed(input);
+    }
+    let mut result = String::with_capacity(input.len());
+    for upper in first_char.to_uppercase() {
+        result.push(upper);
+    }
+    result.push_str(chars.as_str());
+    Cow::Owned(result)
+}
+
+/// Lowercases only the first Unicode scalar character of a string slice without altering the rest.
+///
+/// Returns `Cow::Borrowed` with zero allocations if the input already begins with a lowercase character or is empty.
+///
+/// # Examples
+/// ```
+/// use borno::case::uncapitalize_first;
+///
+/// assert_eq!(uncapitalize_first("Hello World"), "hello World");
+/// assert_eq!(uncapitalize_first("hello world"), "hello world");
+/// assert_eq!(uncapitalize_first(""), "");
+/// ```
+pub fn uncapitalize_first(input: &str) -> Cow<'_, str> {
+    let mut chars = input.chars();
+    let Some(first_char) = chars.next() else {
+        return Cow::Borrowed("");
+    };
+    if first_char.is_lowercase() {
+        return Cow::Borrowed(input);
+    }
+    let mut result = String::with_capacity(input.len());
+    for lower in first_char.to_lowercase() {
+        result.push(lower);
+    }
+    result.push_str(chars.as_str());
+    Cow::Owned(result)
+}
+
+/// Alias for [`capitalize_first`].
+#[inline]
+pub fn ucfirst(input: &str) -> Cow<'_, str> {
+    capitalize_first(input)
+}
+
+/// Alias for [`uncapitalize_first`].
+#[inline]
+pub fn lcfirst(input: &str) -> Cow<'_, str> {
+    uncapitalize_first(input)
+}
+
+/// Alias for [`to_pascal_case`].
+#[inline]
+#[cfg(feature = "case-pascal")]
+pub fn to_studly_case(input: &str) -> Cow<'_, str> {
+    to_pascal_case(input)
+}
+
+/// Checks if input is in PascalCase / StudlyCase.
+#[inline]
+#[cfg(feature = "case-pascal")]
+pub fn is_studly_case(input: &str) -> bool {
+    is_pascal_case(input)
+}
+
+/// Alias for [`to_pascal_case`].
+#[inline]
+#[cfg(feature = "case-pascal")]
+pub fn to_class_case(input: &str) -> Cow<'_, str> {
+    to_pascal_case(input)
+}
+
+/// Checks if input is in ClassCase (PascalCase).
+#[inline]
+#[cfg(feature = "case-pascal")]
+pub fn is_class_case(input: &str) -> bool {
+    is_pascal_case(input)
+}
+
+/// Alias for [`tableize`] (generates pluralized, snake_cased database table name).
+#[inline]
+#[cfg(feature = "conventions")]
+pub fn to_table_case(input: &str) -> String {
+    tableize(input)
+}
+
+/// Checks if input is a valid table name (pluralized snake_case).
+#[inline]
+#[cfg(all(feature = "conventions", feature = "grammar"))]
+pub fn is_table_case(input: &str) -> bool {
+    is_snake_case(input) && crate::grammar::is_plural(input)
+}
 
 /// Inverts the case of each character in a string slice.
 ///
@@ -65,7 +185,9 @@ pub use train::{is_train_case, to_train_case};
     feature = "case-train",
     feature = "case-title",
     feature = "case-sentence",
-    feature = "case-dot"
+    feature = "case-dot",
+    feature = "case-no",
+    feature = "case-capital"
 ))]
 pub fn swap_case(input: &str) -> String {
     let mut result = String::with_capacity(input.len());
@@ -81,37 +203,14 @@ pub fn swap_case(input: &str) -> String {
     result
 }
 
-/// Checks if a character acts as a word separator.
-#[inline]
-#[cfg(any(
-    feature = "case-camel",
-    feature = "case-dot",
-    feature = "case-kebab",
-    feature = "case-pascal",
-    feature = "case-sentence",
-    feature = "case-snake",
-    feature = "case-screaming-snake",
-    feature = "case-title",
-    feature = "case-train",
-    feature = "conventions",
-    feature = "grammar"
-))]
-pub(crate) fn is_separator(character: char) -> bool {
-    character.is_whitespace()
-        || character == '_'
-        || character == '-'
-        || character == '.'
-        || character == '/'
-        || character == '\\'
-        || character == ':'
-}
-
 /// Splits a string slice into word slices by detecting separators,
 /// camelCase transitions, and consecutive uppercase acronym boundaries.
 #[cfg(any(
     feature = "case-camel",
+    feature = "case-capital",
     feature = "case-dot",
     feature = "case-kebab",
+    feature = "case-no",
     feature = "case-pascal",
     feature = "case-sentence",
     feature = "case-snake",
@@ -122,6 +221,11 @@ pub(crate) fn is_separator(character: char) -> bool {
     feature = "grammar"
 ))]
 pub(crate) fn split_words(input: &str) -> Vec<&str> {
+    #[inline]
+    fn is_separator(character: char) -> bool {
+        character.is_whitespace() || matches!(character, '_' | '-' | '.' | '/' | '\\' | ':')
+    }
+
     if input.is_empty() {
         return Vec::new();
     }
@@ -185,7 +289,8 @@ pub(crate) fn split_words(input: &str) -> Vec<&str> {
     feature = "case-snake",
     feature = "case-screaming-snake",
     feature = "case-kebab",
-    feature = "case-dot"
+    feature = "case-dot",
+    feature = "case-no"
 ))]
 pub(crate) fn is_delimited_ascii(input: &str, separator: u8, require_uppercase: bool) -> bool {
     if input.is_empty() {
@@ -220,7 +325,11 @@ pub(crate) fn is_delimited_ascii(input: &str, separator: u8, require_uppercase: 
 
 /// Validates whether a string slice matches delimited title casing.
 #[inline]
-#[cfg(any(feature = "case-title", feature = "case-train"))]
+#[cfg(any(
+    feature = "case-title",
+    feature = "case-train",
+    feature = "case-capital"
+))]
 pub(crate) fn is_delimited_title(input: &str, separator: char) -> bool {
     if input.is_empty() || input.starts_with(separator) || input.ends_with(separator) {
         return false;
@@ -279,9 +388,11 @@ pub(crate) fn is_camel_or_pascal(input: &str, require_uppercase_first: bool) -> 
 #[inline]
 #[cfg(any(
     feature = "case-camel",
-    feature = "case-pascal",
+    feature = "case-capital",
     feature = "case-dot",
     feature = "case-kebab",
+    feature = "case-no",
+    feature = "case-pascal",
     feature = "case-snake",
     feature = "case-screaming-snake",
     feature = "case-title",
@@ -303,6 +414,7 @@ pub(crate) fn append_cased(buffer: &mut String, character: char, uppercase: bool
 #[cfg(any(
     feature = "case-dot",
     feature = "case-kebab",
+    feature = "case-no",
     feature = "case-snake",
     feature = "case-screaming-snake"
 ))]
@@ -326,7 +438,11 @@ pub(crate) fn join_words_cased(
 }
 
 /// Joins word slices where each word is capitalized, separated by a delimiter.
-#[cfg(any(feature = "case-title", feature = "case-train"))]
+#[cfg(any(
+    feature = "case-title",
+    feature = "case-train",
+    feature = "case-capital"
+))]
 pub(crate) fn join_words_title(words: &[&str], separator: char, original_len: usize) -> String {
     let total_separator_bytes = words.len().saturating_sub(1) * separator.len_utf8();
     let mut result = String::with_capacity(original_len + total_separator_bytes);

@@ -84,7 +84,6 @@ static UNCOUNTABLE_NOUNS: &[&str] = &[
     "furniture",
     "garbage",
     "garlic",
-    "gas",
     "genetics",
     "gold",
     "golf",
