@@ -284,3 +284,32 @@ fn test_new_casing_and_scalar_helpers() {
         assert!(!is_table_case("user_profile"));
     }
 }
+
+#[test]
+fn test_deep_case_engine_and_ext_integration() {
+    use std::borrow::Cow;
+
+    use borno::{Case, StrExt, detect_case, is_case, to_case};
+
+    let text = "user_account_id";
+    assert_eq!(to_case(text, Case::Camel), "userAccountId");
+    assert_eq!(to_case(text, Case::Pascal), "UserAccountId");
+    assert_eq!(to_case(text, Case::Kebab), "user-account-id");
+    assert_eq!(to_case(text, Case::Title), "User Account Id");
+    assert_eq!(to_case(text, Case::Snake), Cow::Borrowed("user_account_id"));
+
+    assert!(is_case("user_account_id", Case::Snake));
+    assert!(is_case("userAccountId", Case::Camel));
+    assert!(is_case("UserAccountId", Case::Pascal));
+    assert!(is_case("user-account-id", Case::Kebab));
+
+    assert_eq!(detect_case("user_account_id"), Some(Case::Snake));
+    assert_eq!(detect_case("userAccountId"), Some(Case::Camel));
+    assert_eq!(detect_case("UserAccountId"), Some(Case::Pascal));
+    assert_eq!(detect_case("user-account-id"), Some(Case::Kebab));
+
+    // StrExt integration
+    assert_eq!(text.to_case(Case::Camel), "userAccountId");
+    assert!(text.is_case(Case::Snake));
+    assert_eq!(text.detect_case(), Some(Case::Snake));
+}

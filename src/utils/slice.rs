@@ -100,6 +100,37 @@ pub fn after_last<'a>(input: &'a str, delimiter: &str) -> Cow<'a, str> {
     }
 }
 
+/// Removes module namespaces from a fully qualified type or namespace path.
+///
+/// # Examples
+/// ```
+/// use borno::utils::slice::demodulize;
+///
+/// assert_eq!(demodulize("crate::services::UserService"), "UserService");
+/// assert_eq!(demodulize("User"), "User");
+/// ```
+#[inline]
+pub fn demodulize(input: &str) -> &str {
+    input.rsplit("::").next().unwrap_or(input)
+}
+
+/// Removes the rightmost component from a namespace or module path.
+///
+/// # Examples
+/// ```
+/// use borno::utils::slice::deconstantize;
+///
+/// assert_eq!(deconstantize("crate::services::UserService"), "crate::services");
+/// assert_eq!(deconstantize("User"), "");
+/// ```
+#[inline]
+pub fn deconstantize(input: &str) -> &str {
+    input
+        .rsplit_once("::")
+        .map(|(prefix, _)| prefix)
+        .unwrap_or("")
+}
+
 /// Returns the portion of a string between the first occurrence of two delimiters.
 ///
 /// Returns an empty string if either delimiter is empty, missing, or if the end

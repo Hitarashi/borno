@@ -412,3 +412,32 @@ fn test_advanced_slice_utilities() {
     let dedup_res = deduplicate(non_dup, '/');
     assert!(matches!(dedup_res, std::borrow::Cow::Borrowed(_)));
 }
+
+#[test]
+fn test_affix_engine_and_ext_integration() {
+    use std::borrow::Cow;
+
+    use borno::{Affix, StrExt};
+
+    assert_eq!(Affix::ensure_prefix("path", "/"), "/path");
+    assert_eq!(Affix::ensure_prefix("/path", "/"), Cow::Borrowed("/path"));
+    assert_eq!(Affix::ensure_suffix("path", "/"), "path/");
+    assert_eq!(Affix::ensure_suffix("path/", "/"), Cow::Borrowed("path/"));
+    assert_eq!(Affix::ensure_wrapped("path", "/", "/"), "/path/");
+    assert_eq!(
+        Affix::ensure_wrapped("/path/", "/", "/"),
+        Cow::Borrowed("/path/")
+    );
+    assert_eq!(Affix::strip_prefix("/path", "/"), "path");
+    assert_eq!(Affix::strip_suffix("path/", "/"), "path");
+
+    // StrExt integration
+    let s = "path";
+    assert_eq!(s.ensure_prefix("/"), "/path");
+    assert_eq!(s.ensure_suffix("/"), "path/");
+    assert_eq!(s.ensure_wrapped("/", "/"), "/path/");
+    let already = "/path/";
+    assert_eq!(already.ensure_prefix("/"), Cow::Borrowed("/path/"));
+    assert_eq!(already.ensure_suffix("/"), Cow::Borrowed("/path/"));
+    assert_eq!(already.ensure_wrapped("/", "/"), Cow::Borrowed("/path/"));
+}

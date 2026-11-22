@@ -77,6 +77,150 @@ pub fn pad_both(input: &str, target_len: usize, pad_char: char) -> String {
     result
 }
 
+use std::borrow::Cow;
+
+/// Deep affix engine providing boundary guardrails, idempotent prefixes/suffixes, and wrapping.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Affix;
+
+impl Affix {
+    /// Idempotently ensures an input string begins with the specified prefix without duplicating it.
+    #[inline]
+    pub fn ensure_prefix<'a>(input: &'a str, prefix: &str) -> Cow<'a, str> {
+        ensure_prefix(input, prefix)
+    }
+
+    /// Idempotently ensures an input string ends with the specified suffix without duplicating it.
+    #[inline]
+    pub fn ensure_suffix<'a>(input: &'a str, suffix: &str) -> Cow<'a, str> {
+        ensure_suffix(input, suffix)
+    }
+
+    /// Idempotently ensures an input string starts with before and ends with after.
+    #[inline]
+    pub fn ensure_wrapped<'a>(input: &'a str, before: &str, after: &str) -> Cow<'a, str> {
+        ensure_wrapped(input, before, after)
+    }
+
+    /// Strips an exact prefix from an input slice if present.
+    #[inline]
+    pub fn strip_prefix<'a>(input: &'a str, prefix: &str) -> &'a str {
+        strip_prefix(input, prefix)
+    }
+
+    /// Strips an exact suffix from an input slice if present.
+    #[inline]
+    pub fn strip_suffix<'a>(input: &'a str, suffix: &str) -> &'a str {
+        strip_suffix(input, suffix)
+    }
+
+    /// Wraps a string with prefix and suffix.
+    #[inline]
+    pub fn wrap(input: &str, before: &str, after: &str) -> String {
+        wrap(input, before, after)
+    }
+
+    /// Strips enclosing prefix and suffix delimiters from a string slice.
+    #[inline]
+    pub fn unwrap<'a>(input: &'a str, before: &str, after: &str) -> &'a str {
+        unwrap(input, before, after)
+    }
+
+    /// Strips matching enclosing quotes (`"` or `'`).
+    #[inline]
+    pub fn unwrap_quotes(input: &str) -> &str {
+        unwrap_quotes(input)
+    }
+
+    /// Left-pads a string slice.
+    #[inline]
+    pub fn pad_start(input: &str, target_len: usize, pad_char: char) -> String {
+        pad_start(input, target_len, pad_char)
+    }
+
+    /// Right-pads a string slice.
+    #[inline]
+    pub fn pad_end(input: &str, target_len: usize, pad_char: char) -> String {
+        pad_end(input, target_len, pad_char)
+    }
+
+    /// Center-pads a string slice.
+    #[inline]
+    pub fn pad_both(input: &str, target_len: usize, pad_char: char) -> String {
+        pad_both(input, target_len, pad_char)
+    }
+}
+
+/// Ensures an input string slice starts with the given prefix without duplicating it.
+///
+/// Returns `Cow::Borrowed` if the input already begins with `prefix`.
+#[must_use]
+pub fn ensure_prefix<'a>(input: &'a str, prefix: &str) -> Cow<'a, str> {
+    if prefix.is_empty() || input.starts_with(prefix) {
+        Cow::Borrowed(input)
+    } else {
+        let mut result = String::with_capacity(prefix.len() + input.len());
+        result.push_str(prefix);
+        result.push_str(input);
+        Cow::Owned(result)
+    }
+}
+
+/// Ensures an input string slice ends with the given suffix without duplicating it.
+///
+/// Returns `Cow::Borrowed` if the input already ends with `suffix`.
+#[must_use]
+pub fn ensure_suffix<'a>(input: &'a str, suffix: &str) -> Cow<'a, str> {
+    if suffix.is_empty() || input.ends_with(suffix) {
+        Cow::Borrowed(input)
+    } else {
+        let mut result = String::with_capacity(input.len() + suffix.len());
+        result.push_str(input);
+        result.push_str(suffix);
+        Cow::Owned(result)
+    }
+}
+
+/// Ensures a string slice starts with a prefix and ends with a suffix without duplicating them.
+///
+/// Returns `Cow::Borrowed` with zero allocations if already correctly wrapped.
+#[must_use]
+pub fn ensure_wrapped<'a>(input: &'a str, before: &str, after: &str) -> Cow<'a, str> {
+    let has_before = before.is_empty() || input.starts_with(before);
+    let has_after = after.is_empty() || input.ends_with(after);
+
+    if has_before && has_after {
+        return Cow::Borrowed(input);
+    }
+
+    let extra_before = if has_before { 0 } else { before.len() };
+    let extra_after = if has_after { 0 } else { after.len() };
+    let mut result = String::with_capacity(input.len() + extra_before + extra_after);
+
+    if !has_before {
+        result.push_str(before);
+    }
+    result.push_str(input);
+    if !has_after {
+        result.push_str(after);
+    }
+    Cow::Owned(result)
+}
+
+/// Strips an exact prefix from an input slice if present.
+#[inline]
+#[must_use]
+pub fn strip_prefix<'a>(input: &'a str, prefix: &str) -> &'a str {
+    input.strip_prefix(prefix).unwrap_or(input)
+}
+
+/// Strips an exact suffix from an input slice if present.
+#[inline]
+#[must_use]
+pub fn strip_suffix<'a>(input: &'a str, suffix: &str) -> &'a str {
+    input.strip_suffix(suffix).unwrap_or(input)
+}
+
 /// Ensures a string starts with the given prefix.
 ///
 /// # Examples
@@ -87,14 +231,7 @@ pub fn pad_both(input: &str, target_len: usize, pad_char: char) -> String {
 /// assert_eq!(start("/path/to/resource", "/"), "/path/to/resource");
 /// ```
 pub fn start(input: &str, prefix: &str) -> String {
-    if input.starts_with(prefix) {
-        input.to_string()
-    } else {
-        let mut result = String::with_capacity(prefix.len() + input.len());
-        result.push_str(prefix);
-        result.push_str(input);
-        result
-    }
+    ensure_prefix(input, prefix).into_owned()
 }
 
 /// Ensures a string ends with the given suffix.
@@ -107,14 +244,7 @@ pub fn start(input: &str, prefix: &str) -> String {
 /// assert_eq!(finish("https://example.com/", "/"), "https://example.com/");
 /// ```
 pub fn finish(input: &str, suffix: &str) -> String {
-    if input.ends_with(suffix) {
-        input.to_string()
-    } else {
-        let mut result = String::with_capacity(input.len() + suffix.len());
-        result.push_str(input);
-        result.push_str(suffix);
-        result
-    }
+    ensure_suffix(input, suffix).into_owned()
 }
 
 /// Wraps a string with prefix and suffix strings.
@@ -167,27 +297,7 @@ pub fn unwrap<'a>(input: &'a str, before: &str, after: &str) -> &'a str {
 /// ```
 #[must_use]
 pub fn ensure_wrap(input: &str, before: &str, after: &str) -> String {
-    let with_before = if input.starts_with(before) { input } else { "" };
-
-    let needs_before = with_before.is_empty() && !before.is_empty();
-    let needs_after = !input.ends_with(after) && !after.is_empty();
-
-    if !needs_before && !needs_after {
-        return input.to_string();
-    }
-
-    let extra_before = if needs_before { before.len() } else { 0 };
-    let extra_after = if needs_after { after.len() } else { 0 };
-    let mut result = String::with_capacity(input.len() + extra_before + extra_after);
-
-    if needs_before {
-        result.push_str(before);
-    }
-    result.push_str(input);
-    if needs_after {
-        result.push_str(after);
-    }
-    result
+    ensure_wrapped(input, before, after).into_owned()
 }
 
 /// Semantic alias for [`wrap`].

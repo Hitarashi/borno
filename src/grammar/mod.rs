@@ -12,7 +12,7 @@ pub mod uncountables;
 
 use case_preserver::{apply_casing_style, detect_casing_style};
 
-use crate::case::split_words;
+use crate::case::split_compound_tail;
 
 /// Thread-safe global default inflection engine instance.
 static GLOBAL_INFLECTOR: LazyLock<RwLock<Inflector>> =
@@ -97,28 +97,8 @@ impl Inflector {
             return Cow::Borrowed("");
         }
 
-        // Handle delimited compound strings (e.g., "user_profile", "user-profile", "user profile")
-        if let Some(separator_index) = word.rfind(['_', '-', ' ']) {
-            let prefix = &word[..=separator_index];
-            let last_word = &word[separator_index + 1..];
-            if !last_word.is_empty() {
-                let inflected_last = self.pluralize_single_word(last_word);
-                if inflected_last == last_word {
-                    return Cow::Borrowed(word);
-                }
-                let mut result = String::with_capacity(prefix.len() + inflected_last.len());
-                result.push_str(prefix);
-                result.push_str(&inflected_last);
-                return Cow::Owned(result);
-            }
-        }
-
-        // Handle camelCase or PascalCase compound strings (e.g., "userProfile", "UserProfile")
-        let words = split_words(word);
-        if words.len() > 1 && !word.contains(['_', '-', ' ']) {
-            let last_token = words[words.len() - 1];
-            let last_offset = word.len() - last_token.len();
-            let prefix = &word[..last_offset];
+        // Handle compound strings with zero-allocation tail boundary extraction
+        if let Some((prefix, last_token)) = split_compound_tail(word) {
             let inflected_last = self.pluralize_single_word(last_token);
             if inflected_last == last_token {
                 return Cow::Borrowed(word);
@@ -143,28 +123,8 @@ impl Inflector {
             return Cow::Borrowed("");
         }
 
-        // Handle delimited compound strings
-        if let Some(separator_index) = word.rfind(['_', '-', ' ']) {
-            let prefix = &word[..=separator_index];
-            let last_word = &word[separator_index + 1..];
-            if !last_word.is_empty() {
-                let inflected_last = self.singularize_single_word(last_word);
-                if inflected_last == last_word {
-                    return Cow::Borrowed(word);
-                }
-                let mut result = String::with_capacity(prefix.len() + inflected_last.len());
-                result.push_str(prefix);
-                result.push_str(&inflected_last);
-                return Cow::Owned(result);
-            }
-        }
-
-        // Handle camelCase or PascalCase compound strings
-        let words = split_words(word);
-        if words.len() > 1 && !word.contains(['_', '-', ' ']) {
-            let last_token = words[words.len() - 1];
-            let last_offset = word.len() - last_token.len();
-            let prefix = &word[..last_offset];
+        // Handle compound strings with zero-allocation tail boundary extraction
+        if let Some((prefix, last_token)) = split_compound_tail(word) {
             let inflected_last = self.singularize_single_word(last_token);
             if inflected_last == last_token {
                 return Cow::Borrowed(word);
@@ -200,6 +160,12 @@ impl Inflector {
 
     /// Determines if a word is in plural form.
     pub fn is_plural(&self, word: &str) -> bool {
+        if word.is_empty() {
+            return false;
+        }
+        if let Some((_, tail)) = split_compound_tail(word) {
+            return self.is_plural(tail);
+        }
         let word_lower = word.to_lowercase();
         if self
             .custom_irregulars_plural_to_singular
@@ -220,11 +186,17 @@ impl Inflector {
         {
             return true;
         }
-        self.singularize(word) != word
+        self.singularize_single_word(word) != word
     }
 
     /// Determines if a word is in singular form.
     pub fn is_singular(&self, word: &str) -> bool {
+        if word.is_empty() {
+            return false;
+        }
+        if let Some((_, tail)) = split_compound_tail(word) {
+            return self.is_singular(tail);
+        }
         let word_lower = word.to_lowercase();
         if self
             .custom_irregulars_singular_to_plural
@@ -245,7 +217,7 @@ impl Inflector {
         {
             return true;
         }
-        self.singularize(word) == word
+        self.singularize_single_word(word) == word
     }
 
     fn pluralize_single_word(&self, word: &str) -> String {

@@ -656,3 +656,315 @@ fn test_unicode_casing_and_slug_edges() {
         "東京-大阪"
     );
 }
+
+#[test]
+fn test_100_percent_coverage_gap_fillers() {
+    use std::borrow::Cow;
+
+    use borno::{
+        Affix, Case, StrBuilder,
+        case::{
+            is_camel_case, is_kebab_case, is_sentence_case, is_snake_case, is_title_case,
+            to_snake_case, to_title_case_apa,
+        },
+        grammar::{is_plural, is_singular, pluralize},
+        slug::{SlugOptions, slugify, slugify_with_options},
+    };
+
+    // 1. case/apa.rs
+    assert_eq!(
+        to_title_case_apa("The Old Man and the Sea"),
+        Cow::Borrowed("The Old Man and the Sea")
+    );
+    assert_eq!(to_title_case_apa(""), Cow::Borrowed(""));
+
+    // 2. case/predicates.rs (tested through public casing predicates)
+    assert!(!is_snake_case("a__b"));
+    assert!(!is_kebab_case("a--b"));
+    assert!(!is_title_case("A  B"));
+    assert!(!is_camel_case(""));
+    assert!(!is_sentence_case("Hello  world"));
+    assert!(!is_sentence_case("Hello World"));
+    assert!(is_sentence_case("Hello 123 world"));
+
+    // 3. case/scanner.rs (tested through public casing and inflection)
+    assert_eq!(to_snake_case("item10Count"), "item_10_count");
+    assert_eq!(pluralize("user2Profile"), "user2Profiles");
+    assert_eq!(pluralize("userProfile2"), "userProfile2s");
+    assert_eq!(pluralize("überUser"), "überUsers");
+    assert_eq!(pluralize("ÜberUser"), "ÜberUsers");
+    assert_eq!(pluralize("HTTPÜber"), "HTTPÜbers");
+    assert_eq!(pluralize("über123"), "über123s");
+    assert_eq!(pluralize("123über"), "123übers");
+
+    // 4. case/style.rs
+    let err = "invalid_style".parse::<Case>().unwrap_err();
+    assert_eq!(err.invalid_name(), "invalid_style");
+    assert_eq!(
+        format!("{err}"),
+        "unrecognized casing style: 'invalid_style'"
+    );
+
+    for case in Case::ALL {
+        assert!(!case.as_str().is_empty());
+        assert_eq!(format!("{case}"), case.as_str());
+    }
+    assert_eq!("title".parse::<Case>().unwrap(), Case::Title);
+    assert_eq!("sentence".parse::<Case>().unwrap(), Case::Sentence);
+    assert_eq!("no".parse::<Case>().unwrap(), Case::No);
+    assert_eq!("capital".parse::<Case>().unwrap(), Case::Capital);
+
+    // 5. grammar/mod.rs
+    assert!(!is_plural(""));
+    assert!(!is_singular(""));
+    assert!(is_singular("user_profile"));
+    assert!(!is_singular("user_profiles"));
+    assert!(is_singular("userProfile"));
+    assert!(!is_singular("userProfiles"));
+
+    // 6. slug/transliterate.rs and slug/mod.rs
+    assert_eq!(slugify("§"), "");
+    assert_eq!(slugify("¿"), "");
+    assert_eq!(slugify("¡"), "");
+    assert_eq!(slugify("hello---"), "hello");
+    assert_eq!(slugify("hello 🦀"), "hello");
+    assert_eq!(slugify("🦀 hello"), "hello");
+
+    let symbol_default = SlugOptions::new().with_symbol_expansion(true);
+    assert_eq!(
+        slugify_with_options("hello & world", &symbol_default),
+        "hello-and-world"
+    );
+
+    let symbol_custom = SlugOptions::new()
+        .with_delimiter('_')
+        .with_symbol_expansion(true);
+    assert_eq!(
+        slugify_with_options("tom & jerry @ home", &symbol_custom),
+        "tom_and_jerry_at_home"
+    );
+    assert_eq!(
+        slugify_with_options("& tom @", &symbol_custom),
+        "and_tom_at"
+    );
+
+    let upper_slug = SlugOptions::new().with_lowercase(false).with_delimiter('_');
+    assert_eq!(
+        slugify_with_options("Café Déjà 🦀 Vu---", &upper_slug),
+        "Cafe_Deja_Vu"
+    );
+
+    // 7. utils/pad.rs
+    assert_eq!(Affix::wrap("foo", "[", "]"), "[foo]");
+    assert_eq!(Affix::unwrap("[foo]", "[", "]"), "foo");
+    assert_eq!(Affix::unwrap_quotes("\"foo\""), "foo");
+    assert_eq!(Affix::pad_start("42", 5, '0'), "00042");
+    assert_eq!(Affix::pad_end("42", 5, '0'), "42000");
+    assert_eq!(Affix::pad_both("42", 6, '-'), "--42--");
+
+    // 8. builder.rs (All Cow::Owned branches)
+    let owned = StrBuilder::new(String::from("  hello_world  "));
+    assert_eq!(format!("{owned}"), "  hello_world  ");
+    assert_eq!(owned.as_ref(), "  hello_world  ");
+    assert_eq!(&*owned, "  hello_world  ");
+
+    let from_str: StrBuilder = "hello".into();
+    assert_eq!(from_str.into_cow(), Cow::Borrowed("hello"));
+    let from_string: StrBuilder = String::from("hello").into();
+    assert_eq!(
+        from_string.into_cow(),
+        Cow::Owned::<str>("hello".to_string())
+    );
+    let from_cow: StrBuilder = Cow::Borrowed("hello").into();
+    assert_eq!(from_cow.into_cow(), Cow::Borrowed("hello"));
+
+    // Pipeline with owned values covering Cow::Owned branches
+    let b = StrBuilder::new(String::from("  crate::services::user_profile  "))
+        .trim()
+        .demodulize()
+        .deconstantize();
+    assert_eq!(b.into_string(), "");
+
+    let b_owned = StrBuilder::new(String::from("user_profile"));
+    assert_eq!(
+        b_owned.clone().to_case(Case::Camel).into_string(),
+        "userProfile"
+    );
+    assert_eq!(
+        b_owned.clone().capitalize_first().into_string(),
+        "User_profile"
+    );
+    assert_eq!(
+        b_owned.clone().uncapitalize_first().into_string(),
+        "user_profile"
+    );
+    assert_eq!(b_owned.clone().pluralize().into_string(), "user_profiles");
+    assert_eq!(b_owned.clone().singularize().into_string(), "user_profile");
+    assert_eq!(
+        b_owned.clone().pluralize_with_count(2).into_string(),
+        "user_profiles"
+    );
+    assert_eq!(
+        b_owned.clone().start("api_").into_string(),
+        "api_user_profile"
+    );
+    assert_eq!(
+        b_owned.clone().finish("_v1").into_string(),
+        "user_profile_v1"
+    );
+    assert_eq!(
+        b_owned.clone().ensure_prefix("api_").into_string(),
+        "api_user_profile"
+    );
+    assert_eq!(
+        b_owned.clone().ensure_suffix("_v1").into_string(),
+        "user_profile_v1"
+    );
+    assert_eq!(
+        b_owned.clone().ensure_wrap("api_", "_v1").into_string(),
+        "api_user_profile_v1"
+    );
+    assert_eq!(
+        b_owned.clone().ensure_wrapped("api_", "_v1").into_string(),
+        "api_user_profile_v1"
+    );
+    assert_eq!(b_owned.clone().before("_").into_string(), "user");
+    assert_eq!(b_owned.clone().before_last("_").into_string(), "user");
+    assert_eq!(b_owned.clone().after("_").into_string(), "profile");
+    assert_eq!(b_owned.clone().after_last("_").into_string(), "profile");
+    assert_eq!(b_owned.clone().between("u", "r").into_string(), "se");
+    assert_eq!(b_owned.clone().between_first("u", "r").into_string(), "se");
+    assert_eq!(b_owned.clone().chop_start("user_").into_string(), "profile");
+    assert_eq!(b_owned.clone().chop_end("_profile").into_string(), "user");
+    assert_eq!(
+        b_owned.clone().remove_prefix("user_").into_string(),
+        "profile"
+    );
+    assert_eq!(
+        b_owned.clone().remove_suffix("_profile").into_string(),
+        "user"
+    );
+    assert_eq!(
+        StrBuilder::new(String::from("file.tar.gz"))
+            .remove_extension()
+            .into_string(),
+        "file.tar"
+    );
+
+    let b_norm = StrBuilder::new(String::from("foo   bar\\baz <script>"))
+        .squish()
+        .normalize_slashes()
+        .html_escape()
+        .html_unescape()
+        .deduplicate('o');
+    assert_eq!(b_norm.into_string(), "fo bar/baz <script>");
+
+    let b_options = StrBuilder::new(String::from("api_user_service"))
+        .remove_prefix_with_options("api_", &borno::utils::AffixOptions::default())
+        .remove_suffix_with_options("_service", &borno::utils::AffixOptions::default());
+    assert_eq!(b_options.into_string(), "user");
+
+    let b_pipe = StrBuilder::new("test").pipe(|builder| builder.into_string() + "ed");
+    assert_eq!(b_pipe, "tested");
+
+    let b_trans = StrBuilder::new("test").transform_with(|s| Cow::Owned(s.to_uppercase()));
+    assert_eq!(b_trans.into_string(), "TEST");
+    let b_trans_borrowed = StrBuilder::new("test").transform_with(|s| Cow::Borrowed(s));
+    assert_eq!(b_trans_borrowed.into_string(), "test");
+
+    // Slug: slugify_raw empty & non-ASCII
+    let no_sym = SlugOptions::new().with_symbol_expansion(false);
+    assert_eq!(slugify_with_options("", &no_sym), "");
+    assert_eq!(slugify_with_options("hello 🦀", &no_sym), "hello");
+    assert_eq!(slugify_with_options("hello🦀world", &no_sym), "hello-world");
+    assert_eq!(slugify_with_options("hello---", &no_sym), "hello");
+
+    // Fast ASCII symbol expansion without delimiter before
+    let custom_delim = SlugOptions::new()
+        .with_delimiter('_')
+        .with_symbol_expansion(true);
+    assert_eq!(slugify_with_options("a&b@c", &custom_delim), "a_and_b_at_c");
+    assert_eq!(slugify_with_options("café", &custom_delim), "cafe");
+    assert_eq!(slugify_with_options("a🦀b---", &custom_delim), "a_b");
+
+    // Transliterate uppercase with Latin-1 symbol
+    let no_lower = SlugOptions::new().with_lowercase(false);
+    assert_eq!(slugify_with_options("§", &no_lower), "");
+
+    // Builder Cow::Owned unchanged and unchanged length branches
+    assert_eq!(
+        StrBuilder::new(String::from("\"quoted\""))
+            .unwrap_quotes()
+            .into_string(),
+        "quoted"
+    );
+    assert_eq!(
+        StrBuilder::new(String::from("unquoted"))
+            .unwrap_quotes()
+            .into_string(),
+        "unquoted"
+    );
+
+    let b_miss = StrBuilder::new(String::from("user_profile"));
+    assert_eq!(b_miss.clone().before("x").into_string(), "user_profile");
+    assert_eq!(
+        b_miss.clone().before_last("x").into_string(),
+        "user_profile"
+    );
+    assert_eq!(b_miss.clone().after("x").into_string(), "");
+    assert_eq!(b_miss.clone().after_last("x").into_string(), "");
+    assert_eq!(b_miss.clone().between("x", "y").into_string(), "");
+    assert_eq!(b_miss.clone().between_first("x", "y").into_string(), "");
+    assert_eq!(b_miss.clone().chop_start("x").into_string(), "user_profile");
+    assert_eq!(b_miss.clone().chop_end("x").into_string(), "user_profile");
+    assert_eq!(
+        b_miss.clone().remove_prefix("x").into_string(),
+        "user_profile"
+    );
+    assert_eq!(
+        b_miss.clone().remove_suffix("x").into_string(),
+        "user_profile"
+    );
+    assert_eq!(
+        b_miss.clone().remove_extension().into_string(),
+        "user_profile"
+    );
+
+    let affix_opts = borno::utils::AffixOptions::default();
+    assert_eq!(
+        b_miss
+            .clone()
+            .remove_prefix_with_options("x", &affix_opts)
+            .into_string(),
+        "user_profile"
+    );
+    assert_eq!(
+        b_miss
+            .clone()
+            .remove_suffix_with_options("x", &affix_opts)
+            .into_string(),
+        "user_profile"
+    );
+
+    // Builder trim with owned unchanged and trim_start / trim_end
+    let b_trim = StrBuilder::new(String::from("hello"));
+    assert_eq!(b_trim.clone().trim().into_string(), "hello");
+    assert_eq!(b_trim.clone().trim_start().into_string(), "hello");
+    assert_eq!(b_trim.clone().trim_end().into_string(), "hello");
+    assert_eq!(
+        StrBuilder::new(String::from("  hello  "))
+            .trim_start()
+            .into_string(),
+        "hello  "
+    );
+    assert_eq!(
+        StrBuilder::new(String::from("  hello  "))
+            .trim_end()
+            .into_string(),
+        "  hello"
+    );
+
+    // Builder append / prepend empty string
+    assert_eq!(StrBuilder::new("hello").append("").into_string(), "hello");
+    assert_eq!(StrBuilder::new("hello").prepend("").into_string(), "hello");
+}

@@ -17,7 +17,9 @@ use crate::case::is_table_case;
     feature = "case-no",
     feature = "case-capital"
 ))]
-use crate::case::{capitalize_first, swap_case, uncapitalize_first};
+use crate::case::{
+    Case, capitalize_first, detect_case, is_case, swap_case, to_case, uncapitalize_first,
+};
 #[cfg(feature = "conventions")]
 use crate::case::{
     classify, deconstantize, demodulize, foreign_key, headline, humanize, is_foreign_key, tableize,
@@ -62,9 +64,10 @@ use crate::utils::interpolate;
 use crate::utils::mask;
 #[cfg(feature = "util-pad")]
 use crate::utils::{
-    AffixOptions, ensure_wrap, ext, finish, prefix, prefix_with_options, remove_extension,
-    remove_prefix, remove_prefix_with_options, remove_suffix, remove_suffix_with_options, start,
-    suffix, suffix_with_options, surround, unwrap, unwrap_quotes, wrap,
+    AffixOptions, ensure_prefix, ensure_suffix, ensure_wrap, ensure_wrapped, ext, finish, prefix,
+    prefix_with_options, remove_extension, remove_prefix, remove_prefix_with_options,
+    remove_suffix, remove_suffix_with_options, start, suffix, suffix_with_options, surround,
+    unwrap, unwrap_quotes, wrap,
 };
 #[cfg(feature = "util-truncate")]
 use crate::utils::{ExcerptOptions, TruncateOptions, excerpt, truncate, words};
@@ -87,6 +90,54 @@ use crate::utils::{normalize_slashes, squish};
 
 /// Extension trait enabling fluent inflections, casing transformations, and utilities on `&str`.
 pub trait StrExt {
+    /// Converts to the specified casing style.
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
+    ))]
+    fn to_case(&self, target_case: Case) -> Cow<'_, str>;
+
+    /// Checks if the slice conforms to the specified casing style.
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
+    ))]
+    fn is_case(&self, target_case: Case) -> bool;
+
+    /// Detects the casing style of the slice, if any.
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
+    ))]
+    fn detect_case(&self) -> Option<Case>;
+
     /// Converts to `snake_case`.
     #[cfg(feature = "case-snake")]
     fn to_snake_case(&self) -> Cow<'_, str>;
@@ -355,6 +406,18 @@ pub trait StrExt {
     #[cfg(feature = "util-pad")]
     fn ensure_wrap(&self, before: &str, after: &str) -> String;
 
+    /// Idempotently ensures the string begins with before and terminates with after without duplicating them.
+    #[cfg(feature = "util-pad")]
+    fn ensure_wrapped<'a>(&'a self, before: &str, after: &str) -> Cow<'a, str>;
+
+    /// Ensures the string starts with the given prefix without duplicating it.
+    #[cfg(feature = "util-pad")]
+    fn ensure_prefix<'a>(&'a self, prefix: &str) -> Cow<'a, str>;
+
+    /// Ensures the string ends with the given suffix without duplicating it.
+    #[cfg(feature = "util-pad")]
+    fn ensure_suffix<'a>(&'a self, suffix: &str) -> Cow<'a, str>;
+
     /// Semantic alias for [`wrap`].
     #[cfg(feature = "util-pad")]
     fn surround(&self, before: &str, after: &str) -> String;
@@ -517,6 +580,57 @@ pub trait StrExt {
 }
 
 impl StrExt for str {
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
+    ))]
+    fn to_case(&self, target_case: Case) -> Cow<'_, str> {
+        to_case(self, target_case)
+    }
+
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
+    ))]
+    fn is_case(&self, target_case: Case) -> bool {
+        is_case(self, target_case)
+    }
+
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
+    ))]
+    fn detect_case(&self) -> Option<Case> {
+        detect_case(self)
+    }
+
     #[cfg(feature = "case-snake")]
     fn to_snake_case(&self) -> Cow<'_, str> {
         to_snake_case(self)
@@ -841,6 +955,21 @@ impl StrExt for str {
     #[cfg(feature = "util-pad")]
     fn ensure_wrap(&self, before_val: &str, after_val: &str) -> String {
         ensure_wrap(self, before_val, after_val)
+    }
+
+    #[cfg(feature = "util-pad")]
+    fn ensure_wrapped<'a>(&'a self, before: &str, after: &str) -> Cow<'a, str> {
+        ensure_wrapped(self, before, after)
+    }
+
+    #[cfg(feature = "util-pad")]
+    fn ensure_prefix<'a>(&'a self, prefix: &str) -> Cow<'a, str> {
+        ensure_prefix(self, prefix)
+    }
+
+    #[cfg(feature = "util-pad")]
+    fn ensure_suffix<'a>(&'a self, suffix: &str) -> Cow<'a, str> {
+        ensure_suffix(self, suffix)
     }
 
     #[cfg(feature = "util-pad")]

@@ -451,6 +451,7 @@ mod tests {
         assert_eq!(slugify("user@example.com"), "user-at-example-com");
         assert_eq!(slugify("___hello___world___"), "hello-world");
         assert_eq!(slugify(""), "");
+        assert_eq!(slugify_raw(""), "");
     }
 
     #[test]

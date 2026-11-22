@@ -1,11 +1,7 @@
 //! Schema, identifier, and relational convention helpers.
 
 use crate::{
-    case::{
-        pascal::to_pascal_case,
-        snake::{is_snake_case, to_snake_case},
-        split_words,
-    },
+    case::{is_snake_case, scanner::split_words, to_pascal_case, to_snake_case},
     grammar::{pluralize, singularize},
 };
 
@@ -171,6 +167,8 @@ pub fn humanize(input: &str) -> String {
 
 /// Removes module namespaces from a fully qualified type path.
 ///
+/// Delegates to [`crate::utils::slice::demodulize`].
+///
 /// # Examples
 /// ```
 /// use borno::demodulize;
@@ -180,10 +178,12 @@ pub fn humanize(input: &str) -> String {
 /// ```
 #[inline]
 pub fn demodulize(input: &str) -> &str {
-    input.rsplit("::").next().unwrap_or(input)
+    crate::utils::slice::demodulize(input)
 }
 
 /// Removes the rightmost component from a namespace or module path.
+///
+/// Delegates to [`crate::utils::slice::deconstantize`].
 ///
 /// # Examples
 /// ```
@@ -194,10 +194,7 @@ pub fn demodulize(input: &str) -> &str {
 /// ```
 #[inline]
 pub fn deconstantize(input: &str) -> &str {
-    input
-        .rsplit_once("::")
-        .map(|(prefix, _)| prefix)
-        .unwrap_or("")
+    crate::utils::slice::deconstantize(input)
 }
 
 #[cfg(test)]

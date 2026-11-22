@@ -1,27 +1,23 @@
 //! Fluent, chainable `StrBuilder` for composing sequential string transformations.
 
-use std::{fmt, ops::Deref};
+use std::{borrow::Cow, fmt, ops::Deref};
 
-#[cfg(feature = "case-camel")]
-use crate::case::to_camel_case;
-#[cfg(feature = "case-capital")]
-use crate::case::to_capital_case;
-#[cfg(feature = "case-dot")]
-use crate::case::to_dot_case;
-#[cfg(feature = "case-kebab")]
-use crate::case::to_kebab_case;
-#[cfg(feature = "case-no")]
-use crate::case::to_no_case;
-#[cfg(feature = "case-pascal")]
-use crate::case::to_pascal_case;
-#[cfg(feature = "case-screaming-snake")]
-use crate::case::to_screaming_snake_case;
-#[cfg(feature = "case-sentence")]
-use crate::case::to_sentence_case;
-#[cfg(feature = "case-snake")]
-use crate::case::to_snake_case;
-#[cfg(feature = "case-train")]
-use crate::case::to_train_case;
+#[cfg(any(
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-camel",
+    feature = "case-pascal",
+    feature = "case-kebab",
+    feature = "case-train",
+    feature = "case-title",
+    feature = "case-sentence",
+    feature = "case-dot",
+    feature = "case-no",
+    feature = "case-capital"
+))]
+use crate::case::Case;
+#[cfg(feature = "case-title")]
+use crate::case::to_title_case_apa;
 #[cfg(any(
     feature = "case-snake",
     feature = "case-screaming-snake",
@@ -38,8 +34,6 @@ use crate::case::to_train_case;
 use crate::case::{capitalize_first, swap_case, uncapitalize_first};
 #[cfg(feature = "conventions")]
 use crate::case::{classify, deconstantize, demodulize, foreign_key, headline, humanize, tableize};
-#[cfg(feature = "case-title")]
-use crate::case::{to_title_case, to_title_case_apa};
 #[cfg(feature = "grammar")]
 use crate::grammar::{
     pluralize, pluralize_with_count, pluralize_with_count_inclusive, singularize,
@@ -54,9 +48,9 @@ use crate::utils::interpolate;
 use crate::utils::mask;
 #[cfg(feature = "util-pad")]
 use crate::utils::{
-    AffixOptions, ensure_wrap, ext, finish, prefix, prefix_with_options, remove_extension,
-    remove_prefix, remove_prefix_with_options, remove_suffix, remove_suffix_with_options, start,
-    suffix, suffix_with_options, surround, unwrap_quotes, wrap,
+    AffixOptions, ensure_prefix, ensure_suffix, ensure_wrapped, ext, prefix, prefix_with_options,
+    remove_extension, remove_prefix, remove_prefix_with_options, remove_suffix,
+    remove_suffix_with_options, suffix, suffix_with_options, unwrap_quotes, wrap,
 };
 #[cfg(feature = "util-truncate")]
 use crate::utils::{TruncateOptions, truncate, words};
@@ -72,88 +66,133 @@ use crate::utils::{
 #[cfg(feature = "util-normalize")]
 use crate::utils::{normalize_slashes, squish};
 
-/// Fluent string transformation pipeline.
+/// Fluent string transformation pipeline with zero-allocation state tracking.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
-pub struct StrBuilder {
-    value: String,
+pub struct StrBuilder<'a> {
+    value: Cow<'a, str>,
 }
 
-impl StrBuilder {
+impl<'a> StrBuilder<'a> {
     /// Creates a new `StrBuilder` from an initial string or slice.
-    pub fn new(initial: impl Into<String>) -> Self {
+    pub fn new(initial: impl Into<Cow<'a, str>>) -> Self {
         Self {
             value: initial.into(),
         }
     }
 
+    /// Feeds the builder through a closure, returning the result of the closure.
+    pub fn pipe<R>(self, op: impl FnOnce(Self) -> R) -> R {
+        op(self)
+    }
+
+    /// Feeds an arbitrary transformation into the pipeline with zero allocation on unchanged results.
+    pub fn transform_with<F>(mut self, transform: F) -> Self
+    where
+        F: FnOnce(&str) -> Cow<'_, str>,
+    {
+        let transformed = transform(&self.value);
+        if let Cow::Owned(s) = transformed {
+            self.value = Cow::Owned(s);
+        }
+        self
+    }
+
+    /// Transforms the inner string into the specified casing style.
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot",
+        feature = "case-no",
+        feature = "case-capital"
+    ))]
+    pub fn to_case(mut self, target_case: Case) -> Self {
+        let transformed = target_case.transform(&self.value);
+        if let Cow::Owned(s) = transformed {
+            self.value = Cow::Owned(s);
+        }
+        self
+    }
+
     /// Transforms the inner string into `snake_case`.
     #[cfg(feature = "case-snake")]
-    pub fn snake_case(mut self) -> Self {
-        self.value = to_snake_case(&self.value).into_owned();
-        self
+    pub fn snake_case(self) -> Self {
+        self.to_case(Case::Snake)
     }
 
     /// Transforms the inner string into `SCREAMING_SNAKE_CASE`.
     #[cfg(feature = "case-screaming-snake")]
-    pub fn screaming_snake_case(mut self) -> Self {
-        self.value = to_screaming_snake_case(&self.value).into_owned();
-        self
+    pub fn screaming_snake_case(self) -> Self {
+        self.to_case(Case::ScreamingSnake)
     }
 
     /// Transforms the inner string into `camelCase`.
     #[cfg(feature = "case-camel")]
-    pub fn camel_case(mut self) -> Self {
-        self.value = to_camel_case(&self.value).into_owned();
-        self
+    pub fn camel_case(self) -> Self {
+        self.to_case(Case::Camel)
     }
 
     /// Transforms the inner string into `PascalCase`.
     #[cfg(feature = "case-pascal")]
-    pub fn pascal_case(mut self) -> Self {
-        self.value = to_pascal_case(&self.value).into_owned();
-        self
+    pub fn pascal_case(self) -> Self {
+        self.to_case(Case::Pascal)
+    }
+
+    /// Alias for [`Self::pascal_case`].
+    #[cfg(feature = "case-pascal")]
+    pub fn studly_case(self) -> Self {
+        self.to_case(Case::Pascal)
+    }
+
+    /// Alias for [`Self::pascal_case`].
+    #[cfg(feature = "case-pascal")]
+    pub fn class_case(self) -> Self {
+        self.to_case(Case::Pascal)
     }
 
     /// Transforms the inner string into `kebab-case`.
     #[cfg(feature = "case-kebab")]
-    pub fn kebab_case(mut self) -> Self {
-        self.value = to_kebab_case(&self.value).into_owned();
-        self
+    pub fn kebab_case(self) -> Self {
+        self.to_case(Case::Kebab)
     }
 
     /// Transforms the inner string into `Train-Case`.
     #[cfg(feature = "case-train")]
-    pub fn train_case(mut self) -> Self {
-        self.value = to_train_case(&self.value).into_owned();
-        self
+    pub fn train_case(self) -> Self {
+        self.to_case(Case::Train)
     }
 
     /// Transforms the inner string into `Title Case`.
     #[cfg(feature = "case-title")]
-    pub fn title_case(mut self) -> Self {
-        self.value = to_title_case(&self.value).into_owned();
-        self
+    pub fn title_case(self) -> Self {
+        self.to_case(Case::Title)
     }
 
     /// Transforms the inner string into APA Title Case.
     #[cfg(feature = "case-title")]
     pub fn title_case_apa(mut self) -> Self {
-        self.value = to_title_case_apa(&self.value).into_owned();
+        let transformed = to_title_case_apa(&self.value);
+        if let Cow::Owned(s) = transformed {
+            self.value = Cow::Owned(s);
+        }
         self
     }
 
     /// Transforms the inner string into `no case`.
     #[cfg(feature = "case-no")]
-    pub fn no_case(mut self) -> Self {
-        self.value = to_no_case(&self.value).into_owned();
-        self
+    pub fn no_case(self) -> Self {
+        self.to_case(Case::No)
     }
 
     /// Transforms the inner string into `Capital Case`.
     #[cfg(feature = "case-capital")]
-    pub fn capital_case(mut self) -> Self {
-        self.value = to_capital_case(&self.value).into_owned();
-        self
+    pub fn capital_case(self) -> Self {
+        self.to_case(Case::Capital)
     }
 
     /// Capitalizes only the first Unicode scalar character of the inner string.
@@ -171,7 +210,10 @@ impl StrBuilder {
         feature = "case-capital"
     ))]
     pub fn capitalize_first(mut self) -> Self {
-        self.value = capitalize_first(&self.value).into_owned();
+        let transformed = capitalize_first(&self.value);
+        if let Cow::Owned(s) = transformed {
+            self.value = Cow::Owned(s);
+        }
         self
     }
 
@@ -190,20 +232,11 @@ impl StrBuilder {
         feature = "case-capital"
     ))]
     pub fn uncapitalize_first(mut self) -> Self {
-        self.value = uncapitalize_first(&self.value).into_owned();
+        let transformed = uncapitalize_first(&self.value);
+        if let Cow::Owned(s) = transformed {
+            self.value = Cow::Owned(s);
+        }
         self
-    }
-
-    /// Alias for [`Self::pascal_case`].
-    #[cfg(feature = "case-pascal")]
-    pub fn studly_case(self) -> Self {
-        self.pascal_case()
-    }
-
-    /// Alias for [`Self::pascal_case`].
-    #[cfg(feature = "case-pascal")]
-    pub fn class_case(self) -> Self {
-        self.pascal_case()
     }
 
     /// Inverts character cases throughout the inner string.
@@ -221,28 +254,26 @@ impl StrBuilder {
         feature = "case-capital"
     ))]
     pub fn swap_case(mut self) -> Self {
-        self.value = swap_case(&self.value);
+        self.value = Cow::Owned(swap_case(&self.value));
         self
     }
 
     /// Transforms the inner string into `Sentence case`.
     #[cfg(feature = "case-sentence")]
-    pub fn sentence_case(mut self) -> Self {
-        self.value = to_sentence_case(&self.value).into_owned();
-        self
+    pub fn sentence_case(self) -> Self {
+        self.to_case(Case::Sentence)
     }
 
     /// Transforms the inner string into `dot.case`.
     #[cfg(feature = "case-dot")]
-    pub fn dot_case(mut self) -> Self {
-        self.value = to_dot_case(&self.value).into_owned();
-        self
+    pub fn dot_case(self) -> Self {
+        self.to_case(Case::Dot)
     }
 
     /// Converts a model name into a conventional database table name.
     #[cfg(feature = "conventions")]
     pub fn tableize(mut self) -> Self {
-        self.value = tableize(&self.value);
+        self.value = Cow::Owned(tableize(&self.value));
         self
     }
 
@@ -255,49 +286,68 @@ impl StrBuilder {
     /// Converts a database table name into a conventional model class name.
     #[cfg(feature = "conventions")]
     pub fn classify(mut self) -> Self {
-        self.value = classify(&self.value);
+        self.value = Cow::Owned(classify(&self.value));
         self
     }
 
     /// Generates a foreign key column name.
     #[cfg(feature = "conventions")]
     pub fn foreign_key(mut self) -> Self {
-        self.value = foreign_key(&self.value);
+        self.value = Cow::Owned(foreign_key(&self.value));
         self
     }
 
     /// Converts an identifier into capitalized headline words.
     #[cfg(feature = "conventions")]
     pub fn headline(mut self) -> Self {
-        self.value = headline(&self.value);
+        self.value = Cow::Owned(headline(&self.value));
         self
     }
 
     /// Converts an identifier into sentence-style human-readable text.
     #[cfg(feature = "conventions")]
     pub fn humanize(mut self) -> Self {
-        self.value = humanize(&self.value);
+        self.value = Cow::Owned(humanize(&self.value));
         self
     }
 
     /// Extracts the type name, removing namespace modules.
     #[cfg(feature = "conventions")]
     pub fn demodulize(mut self) -> Self {
-        self.value = demodulize(&self.value).to_string();
+        match self.value {
+            Cow::Borrowed(s) => self.value = Cow::Borrowed(demodulize(s)),
+            Cow::Owned(ref s) => {
+                let res = demodulize(s);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.to_string());
+                }
+            }
+        }
         self
     }
 
     /// Extracts the parent module namespace.
     #[cfg(feature = "conventions")]
     pub fn deconstantize(mut self) -> Self {
-        self.value = deconstantize(&self.value).to_string();
+        match self.value {
+            Cow::Borrowed(s) => self.value = Cow::Borrowed(deconstantize(s)),
+            Cow::Owned(ref s) => {
+                let res = deconstantize(s);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.to_string());
+                }
+            }
+        }
         self
     }
 
     /// Pluralizes the inner string.
     #[cfg(feature = "grammar")]
     pub fn pluralize(mut self) -> Self {
-        self.value = pluralize(&self.value).into_owned();
+        let inflected = pluralize(&self.value);
+        if let Cow::Owned(s) = inflected {
+            self.value = Cow::Owned(s);
+        }
         self
     }
 
@@ -310,7 +360,10 @@ impl StrBuilder {
     /// Singularizes the inner string.
     #[cfg(feature = "grammar")]
     pub fn singularize(mut self) -> Self {
-        self.value = singularize(&self.value).into_owned();
+        let inflected = singularize(&self.value);
+        if let Cow::Owned(s) = inflected {
+            self.value = Cow::Owned(s);
+        }
         self
     }
 
@@ -323,35 +376,42 @@ impl StrBuilder {
     /// Inflects the inner string based on the given count.
     #[cfg(feature = "grammar")]
     pub fn pluralize_with_count(mut self, count: usize) -> Self {
-        self.value = pluralize_with_count(&self.value, count).into_owned();
+        let inflected = pluralize_with_count(&self.value, count);
+        if let Cow::Owned(s) = inflected {
+            self.value = Cow::Owned(s);
+        }
         self
     }
 
     /// Inflects the inner string based on the given count, prefixing the count.
     #[cfg(feature = "grammar")]
     pub fn pluralize_with_count_inclusive(mut self, count: usize) -> Self {
-        self.value = pluralize_with_count_inclusive(&self.value, count);
+        self.value = Cow::Owned(pluralize_with_count_inclusive(&self.value, count));
         self
     }
 
     /// Converts the inner string to a URL-safe slug.
     #[cfg(feature = "slug")]
     pub fn slugify(mut self) -> Self {
-        self.value = slugify(&self.value);
+        self.value = Cow::Owned(slugify(&self.value));
         self
     }
 
     /// Converts the inner string to a URL-safe slug with options.
     #[cfg(feature = "slug")]
     pub fn slugify_with_options(mut self, options: &SlugOptions) -> Self {
-        self.value = slugify_with_options(&self.value, options);
+        self.value = Cow::Owned(slugify_with_options(&self.value, options));
         self
     }
 
     /// Truncates the inner string to a maximum number of characters with the default ellipsis.
     #[cfg(feature = "util-truncate")]
     pub fn truncate(mut self, max_characters: usize) -> Self {
-        self.value = truncate(&self.value, max_characters, &TruncateOptions::default());
+        self.value = Cow::Owned(truncate(
+            &self.value,
+            max_characters,
+            &TruncateOptions::default(),
+        ));
         self
     }
 
@@ -362,175 +422,285 @@ impl StrBuilder {
         max_characters: usize,
         options: &TruncateOptions,
     ) -> Self {
-        self.value = truncate(&self.value, max_characters, options);
+        self.value = Cow::Owned(truncate(&self.value, max_characters, options));
         self
     }
 
     /// Limits the inner string to a maximum number of words.
     #[cfg(feature = "util-truncate")]
     pub fn words(mut self, max_words: usize, suffix: &str) -> Self {
-        self.value = words(&self.value, max_words, suffix);
+        self.value = Cow::Owned(words(&self.value, max_words, suffix));
         self
     }
 
     /// Masks a substring of the inner string with the given character.
     #[cfg(feature = "util-mask")]
     pub fn mask(mut self, mask_char: char, start_idx: usize, length: Option<usize>) -> Self {
-        self.value = mask(&self.value, mask_char, start_idx, length);
+        self.value = Cow::Owned(mask(&self.value, mask_char, start_idx, length));
         self
     }
 
     /// Ensures the inner string starts with the given prefix.
     #[cfg(feature = "util-pad")]
     pub fn start(mut self, prefix: &str) -> Self {
-        self.value = start(&self.value, prefix);
+        let res = ensure_prefix(&self.value, prefix);
+        if let Cow::Owned(s) = res {
+            self.value = Cow::Owned(s);
+        }
         self
     }
 
     /// Ensures the inner string ends with the given suffix.
     #[cfg(feature = "util-pad")]
     pub fn finish(mut self, suffix: &str) -> Self {
-        self.value = finish(&self.value, suffix);
+        let res = ensure_suffix(&self.value, suffix);
+        if let Cow::Owned(s) = res {
+            self.value = Cow::Owned(s);
+        }
         self
+    }
+
+    /// Ensures the inner string starts with the given prefix.
+    #[cfg(feature = "util-pad")]
+    pub fn ensure_prefix(self, prefix: &str) -> Self {
+        self.start(prefix)
+    }
+
+    /// Ensures the inner string ends with the given suffix.
+    #[cfg(feature = "util-pad")]
+    pub fn ensure_suffix(self, suffix: &str) -> Self {
+        self.finish(suffix)
     }
 
     /// Wraps the inner string with prefix and suffix strings.
     #[cfg(feature = "util-pad")]
     pub fn wrap(mut self, before_val: &str, after_val: &str) -> Self {
-        self.value = wrap(&self.value, before_val, after_val);
+        self.value = Cow::Owned(wrap(&self.value, before_val, after_val));
         self
     }
 
     /// Ensures the inner string begins with a prefix and terminates with a suffix without duplication.
     #[cfg(feature = "util-pad")]
     pub fn ensure_wrap(mut self, before_val: &str, after_val: &str) -> Self {
-        self.value = ensure_wrap(&self.value, before_val, after_val);
+        let res = ensure_wrapped(&self.value, before_val, after_val);
+        if let Cow::Owned(s) = res {
+            self.value = Cow::Owned(s);
+        }
         self
     }
 
-    /// Semantic alias for [`wrap`].
+    /// Alias for [`Self::ensure_wrap`].
     #[cfg(feature = "util-pad")]
-    pub fn surround(mut self, before_val: &str, after_val: &str) -> Self {
-        self.value = surround(&self.value, before_val, after_val);
-        self
+    pub fn ensure_wrapped(self, before_val: &str, after_val: &str) -> Self {
+        self.ensure_wrap(before_val, after_val)
+    }
+
+    /// Semantic alias for [`Self::wrap`].
+    #[cfg(feature = "util-pad")]
+    pub fn surround(self, before_val: &str, after_val: &str) -> Self {
+        self.wrap(before_val, after_val)
     }
 
     /// Strips matching enclosing quotes (single or double) from the inner string.
     #[cfg(feature = "util-pad")]
     pub fn unwrap_quotes(mut self) -> Self {
-        self.value = unwrap_quotes(&self.value).to_string();
+        match self.value {
+            Cow::Borrowed(s) => self.value = Cow::Borrowed(unwrap_quotes(s)),
+            Cow::Owned(ref s) => {
+                let res = unwrap_quotes(s);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.to_string());
+                }
+            }
+        }
         self
     }
 
     /// Slices the inner string before the first occurrence of a delimiter.
     #[cfg(feature = "util-slice")]
     pub fn before(mut self, delimiter: &str) -> Self {
-        self.value = before(&self.value, delimiter).into_owned();
+        match self.value {
+            Cow::Borrowed(s) => self.value = before(s, delimiter),
+            Cow::Owned(ref s) => {
+                let res = before(s, delimiter);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.into_owned());
+                }
+            }
+        }
         self
     }
 
     /// Slices the inner string before the last occurrence of a delimiter.
     #[cfg(feature = "util-slice")]
     pub fn before_last(mut self, delimiter: &str) -> Self {
-        self.value = before_last(&self.value, delimiter).into_owned();
+        match self.value {
+            Cow::Borrowed(s) => self.value = before_last(s, delimiter),
+            Cow::Owned(ref s) => {
+                let res = before_last(s, delimiter);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.into_owned());
+                }
+            }
+        }
         self
     }
 
     /// Slices the inner string after the first occurrence of a delimiter.
     #[cfg(feature = "util-slice")]
     pub fn after(mut self, delimiter: &str) -> Self {
-        self.value = after(&self.value, delimiter).into_owned();
+        match self.value {
+            Cow::Borrowed(s) => self.value = after(s, delimiter),
+            Cow::Owned(ref s) => {
+                let res = after(s, delimiter);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.into_owned());
+                }
+            }
+        }
         self
     }
 
     /// Slices the inner string after the last occurrence of a delimiter.
     #[cfg(feature = "util-slice")]
     pub fn after_last(mut self, delimiter: &str) -> Self {
-        self.value = after_last(&self.value, delimiter).into_owned();
+        match self.value {
+            Cow::Borrowed(s) => self.value = after_last(s, delimiter),
+            Cow::Owned(ref s) => {
+                let res = after_last(s, delimiter);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.into_owned());
+                }
+            }
+        }
         self
     }
 
     /// Slices the inner string between two delimiters.
     #[cfg(feature = "util-slice")]
     pub fn between(mut self, start_delim: &str, end_delim: &str) -> Self {
-        self.value = between(&self.value, start_delim, end_delim).into_owned();
+        match self.value {
+            Cow::Borrowed(s) => self.value = between(s, start_delim, end_delim),
+            Cow::Owned(ref s) => {
+                let res = between(s, start_delim, end_delim);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.into_owned());
+                }
+            }
+        }
         self
     }
 
     /// Slices the inner string between the first occurrence of two delimiters.
     #[cfg(feature = "util-slice")]
     pub fn between_first(mut self, start_delim: &str, end_delim: &str) -> Self {
-        self.value = between_first(&self.value, start_delim, end_delim).into_owned();
+        match self.value {
+            Cow::Borrowed(s) => self.value = between_first(s, start_delim, end_delim),
+            Cow::Owned(ref s) => {
+                let res = between_first(s, start_delim, end_delim);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.into_owned());
+                }
+            }
+        }
         self
     }
 
     /// Removes a leading prefix if present.
     #[cfg(feature = "util-slice")]
     pub fn chop_start(mut self, needle: &str) -> Self {
-        self.value = chop_start(&self.value, needle).to_string();
+        match self.value {
+            Cow::Borrowed(s) => self.value = Cow::Borrowed(chop_start(s, needle)),
+            Cow::Owned(ref s) => {
+                let res = chop_start(s, needle);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.to_string());
+                }
+            }
+        }
         self
     }
 
     /// Removes a trailing suffix if present.
     #[cfg(feature = "util-slice")]
     pub fn chop_end(mut self, needle: &str) -> Self {
-        self.value = chop_end(&self.value, needle).to_string();
+        match self.value {
+            Cow::Borrowed(s) => self.value = Cow::Borrowed(chop_end(s, needle)),
+            Cow::Owned(ref s) => {
+                let res = chop_end(s, needle);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.to_string());
+                }
+            }
+        }
         self
     }
 
     /// Strips an English ordinal suffix from a number string.
     #[cfg(feature = "util-format")]
     pub fn deordinalize(mut self) -> Self {
-        self.value = deordinalize(&self.value).to_string();
+        self.value = Cow::Owned(deordinalize(&self.value).to_string());
         self
     }
 
     /// Strips leading and trailing whitespace and collapses consecutive spaces.
     #[cfg(feature = "util-normalize")]
     pub fn squish(mut self) -> Self {
-        self.value = squish(&self.value).into_owned();
+        let res = squish(&self.value);
+        if let Cow::Owned(s) = res {
+            self.value = Cow::Owned(s);
+        }
         self
     }
 
     /// Normalizes Windows backslashes into forward slashes.
     #[cfg(feature = "util-normalize")]
     pub fn normalize_slashes(mut self) -> Self {
-        self.value = normalize_slashes(&self.value).into_owned();
+        let res = normalize_slashes(&self.value);
+        if let Cow::Owned(s) = res {
+            self.value = Cow::Owned(s);
+        }
         self
     }
 
     /// Escapes HTML characters.
     #[cfg(feature = "util-text")]
     pub fn html_escape(mut self) -> Self {
-        self.value = html_escape(&self.value).into_owned();
+        let res = html_escape(&self.value);
+        if let Cow::Owned(s) = res {
+            self.value = Cow::Owned(s);
+        }
         self
     }
 
     /// Unescapes HTML character entities.
     #[cfg(feature = "util-text")]
     pub fn html_unescape(mut self) -> Self {
-        self.value = html_unescape(&self.value).into_owned();
+        let res = html_unescape(&self.value);
+        if let Cow::Owned(s) = res {
+            self.value = Cow::Owned(s);
+        }
         self
     }
 
     /// Wraps text to line width breaking on words.
     #[cfg(feature = "util-text")]
     pub fn word_wrap(mut self, max_width: usize) -> Self {
-        self.value = word_wrap(&self.value, max_width);
+        self.value = Cow::Owned(word_wrap(&self.value, max_width));
         self
     }
 
     /// Wraps text with custom options.
     #[cfg(feature = "util-text")]
     pub fn word_wrap_with_options(mut self, options: &WordWrapOptions) -> Self {
-        self.value = word_wrap_with_options(&self.value, options);
+        self.value = Cow::Owned(word_wrap_with_options(&self.value, options));
         self
     }
 
     /// Interpolates named parameters into the inner string.
     #[cfg(feature = "util-interpolate")]
     pub fn interpolate(mut self, params: &[(&str, &str)]) -> Self {
-        self.value = interpolate(&self.value, params);
+        self.value = Cow::Owned(interpolate(&self.value, params));
         self
     }
 
@@ -563,11 +733,6 @@ impl StrBuilder {
         self
     }
 
-    /// Pipes the builder into an arbitrary transformation function.
-    pub fn pipe<R>(self, op: impl FnOnce(Self) -> R) -> R {
-        op(self)
-    }
-
     /// Returns `true` if the inner string is empty.
     pub fn is_empty(&self) -> bool {
         self.value.is_empty()
@@ -593,140 +758,220 @@ impl StrBuilder {
     /// Replaces the first occurrence of a substring.
     #[cfg(feature = "util-slice")]
     pub fn replace_first(mut self, from: &str, to: &str) -> Self {
-        self.value = replace_first(&self.value, from, to);
+        self.value = Cow::Owned(replace_first(&self.value, from, to));
         self
     }
 
     /// Replaces the last occurrence of a substring.
     #[cfg(feature = "util-slice")]
     pub fn replace_last(mut self, from: &str, to: &str) -> Self {
-        self.value = replace_last(&self.value, from, to);
+        self.value = Cow::Owned(replace_last(&self.value, from, to));
         self
     }
 
     /// Removes all occurrences of the specified needle.
     #[cfg(feature = "util-slice")]
     pub fn remove(mut self, needle: &str) -> Self {
-        self.value = remove(&self.value, needle);
+        self.value = Cow::Owned(remove(&self.value, needle));
         self
     }
 
     /// Deduplicates consecutive occurrences of a character.
     #[cfg(feature = "util-slice")]
     pub fn deduplicate(mut self, character: char) -> Self {
-        self.value = deduplicate(&self.value, character).into_owned();
+        let res = deduplicate(&self.value, character);
+        if let Cow::Owned(s) = res {
+            self.value = Cow::Owned(s);
+        }
         self
     }
 
     /// Adds a prefix to the inner string, replacing any existing occurrence.
     #[cfg(feature = "util-pad")]
     pub fn prefix(mut self, prefix_val: &str) -> Self {
-        self.value = prefix(&self.value, prefix_val);
+        self.value = Cow::Owned(prefix(&self.value, prefix_val));
         self
     }
 
     /// Adds a prefix to the inner string with configurable options.
     #[cfg(feature = "util-pad")]
     pub fn prefix_with_options(mut self, prefix_val: &str, options: &AffixOptions) -> Self {
-        self.value = prefix_with_options(&self.value, prefix_val, options);
+        self.value = Cow::Owned(prefix_with_options(&self.value, prefix_val, options));
         self
     }
 
     /// Removes a prefix from the inner string with default options.
     #[cfg(feature = "util-pad")]
     pub fn remove_prefix(mut self, prefix_val: &str) -> Self {
-        self.value = remove_prefix(&self.value, prefix_val).to_string();
+        match self.value {
+            Cow::Borrowed(s) => self.value = Cow::Borrowed(remove_prefix(s, prefix_val)),
+            Cow::Owned(ref s) => {
+                let res = remove_prefix(s, prefix_val);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.to_string());
+                }
+            }
+        }
         self
     }
 
     /// Removes a prefix from the inner string with configurable options.
     #[cfg(feature = "util-pad")]
     pub fn remove_prefix_with_options(mut self, prefix_val: &str, options: &AffixOptions) -> Self {
-        self.value = remove_prefix_with_options(&self.value, prefix_val, options).to_string();
+        match self.value {
+            Cow::Borrowed(s) => {
+                self.value = Cow::Borrowed(remove_prefix_with_options(s, prefix_val, options))
+            }
+            Cow::Owned(ref s) => {
+                let res = remove_prefix_with_options(s, prefix_val, options);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.to_string());
+                }
+            }
+        }
         self
     }
 
     /// Adds a suffix to the inner string, replacing any existing occurrence.
     #[cfg(feature = "util-pad")]
     pub fn suffix(mut self, suffix_val: &str) -> Self {
-        self.value = suffix(&self.value, suffix_val);
+        self.value = Cow::Owned(suffix(&self.value, suffix_val));
         self
     }
 
     /// Adds a suffix to the inner string with configurable options.
     #[cfg(feature = "util-pad")]
     pub fn suffix_with_options(mut self, suffix_val: &str, options: &AffixOptions) -> Self {
-        self.value = suffix_with_options(&self.value, suffix_val, options);
+        self.value = Cow::Owned(suffix_with_options(&self.value, suffix_val, options));
         self
     }
 
     /// Removes a suffix from the inner string with default options.
     #[cfg(feature = "util-pad")]
     pub fn remove_suffix(mut self, suffix_val: &str) -> Self {
-        self.value = remove_suffix(&self.value, suffix_val).to_string();
+        match self.value {
+            Cow::Borrowed(s) => self.value = Cow::Borrowed(remove_suffix(s, suffix_val)),
+            Cow::Owned(ref s) => {
+                let res = remove_suffix(s, suffix_val);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.to_string());
+                }
+            }
+        }
         self
     }
 
     /// Removes a suffix from the inner string with configurable options.
     #[cfg(feature = "util-pad")]
     pub fn remove_suffix_with_options(mut self, suffix_val: &str, options: &AffixOptions) -> Self {
-        self.value = remove_suffix_with_options(&self.value, suffix_val, options).to_string();
+        match self.value {
+            Cow::Borrowed(s) => {
+                self.value = Cow::Borrowed(remove_suffix_with_options(s, suffix_val, options))
+            }
+            Cow::Owned(ref s) => {
+                let res = remove_suffix_with_options(s, suffix_val, options);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.to_string());
+                }
+            }
+        }
         self
     }
 
     /// Sets or replaces the file extension of the inner string.
     #[cfg(feature = "util-pad")]
     pub fn ext(mut self, extension: &str) -> Self {
-        self.value = ext(&self.value, extension);
+        self.value = Cow::Owned(ext(&self.value, extension));
         self
     }
 
     /// Strips the file extension from the inner string.
     #[cfg(feature = "util-pad")]
     pub fn remove_extension(mut self) -> Self {
-        self.value = remove_extension(&self.value).to_string();
+        match self.value {
+            Cow::Borrowed(s) => self.value = Cow::Borrowed(remove_extension(s)),
+            Cow::Owned(ref s) => {
+                let res = remove_extension(s);
+                if res.len() != s.len() {
+                    self.value = Cow::Owned(res.to_string());
+                }
+            }
+        }
         self
     }
 
     /// Appends a string slice to the inner string.
     pub fn append(mut self, text: &str) -> Self {
-        self.value.push_str(text);
+        if !text.is_empty() {
+            let mut s = self.value.into_owned();
+            s.push_str(text);
+            self.value = Cow::Owned(s);
+        }
         self
     }
 
     /// Prepends a string slice to the inner string.
     pub fn prepend(mut self, text: &str) -> Self {
-        self.value.insert_str(0, text);
+        if !text.is_empty() {
+            let mut s = String::with_capacity(text.len() + self.value.len());
+            s.push_str(text);
+            s.push_str(&self.value);
+            self.value = Cow::Owned(s);
+        }
         self
     }
 
-    /// Trims leading and trailing whitespace from the inner string.
+    /// Trims leading and trailing whitespace from the inner string with zero allocations for borrowed strings.
     pub fn trim(mut self) -> Self {
-        self.value = self.value.trim().to_string();
+        match self.value {
+            Cow::Borrowed(s) => self.value = Cow::Borrowed(s.trim()),
+            Cow::Owned(ref s) => {
+                let trimmed = s.trim();
+                if trimmed.len() != s.len() {
+                    self.value = Cow::Owned(trimmed.to_string());
+                }
+            }
+        }
         self
     }
 
-    /// Trims leading whitespace from the inner string.
+    /// Trims leading whitespace from the inner string with zero allocations for borrowed strings.
     pub fn trim_start(mut self) -> Self {
-        self.value = self.value.trim_start().to_string();
+        match self.value {
+            Cow::Borrowed(s) => self.value = Cow::Borrowed(s.trim_start()),
+            Cow::Owned(ref s) => {
+                let trimmed = s.trim_start();
+                if trimmed.len() != s.len() {
+                    self.value = Cow::Owned(trimmed.to_string());
+                }
+            }
+        }
         self
     }
 
-    /// Trims trailing whitespace from the inner string.
+    /// Trims trailing whitespace from the inner string with zero allocations for borrowed strings.
     pub fn trim_end(mut self) -> Self {
-        self.value = self.value.trim_end().to_string();
+        match self.value {
+            Cow::Borrowed(s) => self.value = Cow::Borrowed(s.trim_end()),
+            Cow::Owned(ref s) => {
+                let trimmed = s.trim_end();
+                if trimmed.len() != s.len() {
+                    self.value = Cow::Owned(trimmed.to_string());
+                }
+            }
+        }
         self
     }
 
     /// Converts the inner string to lowercase.
     pub fn lowercase(mut self) -> Self {
-        self.value = self.value.to_lowercase();
+        self.value = Cow::Owned(self.value.to_lowercase());
         self
     }
 
     /// Converts the inner string to uppercase.
     pub fn uppercase(mut self) -> Self {
-        self.value = self.value.to_uppercase();
+        self.value = Cow::Owned(self.value.to_uppercase());
         self
     }
 
@@ -737,6 +982,11 @@ impl StrBuilder {
 
     /// Consumes the builder and returns the underlying `String`.
     pub fn into_string(self) -> String {
+        self.value.into_owned()
+    }
+
+    /// Consumes the builder and returns the underlying `Cow<'a, str>`.
+    pub fn into_cow(self) -> Cow<'a, str> {
         self.value
     }
 
@@ -746,7 +996,7 @@ impl StrBuilder {
     }
 }
 
-impl Deref for StrBuilder {
+impl<'a> Deref for StrBuilder<'a> {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
@@ -754,27 +1004,33 @@ impl Deref for StrBuilder {
     }
 }
 
-impl AsRef<str> for StrBuilder {
+impl<'a> AsRef<str> for StrBuilder<'a> {
     fn as_ref(&self) -> &str {
         &self.value
     }
 }
 
-impl fmt::Display for StrBuilder {
+impl<'a> fmt::Display for StrBuilder<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.value)
     }
 }
 
-impl From<&str> for StrBuilder {
-    fn from(s: &str) -> Self {
+impl<'a> From<&'a str> for StrBuilder<'a> {
+    fn from(s: &'a str) -> Self {
         Self::new(s)
     }
 }
 
-impl From<String> for StrBuilder {
+impl From<String> for StrBuilder<'static> {
     fn from(s: String) -> Self {
         Self::new(s)
+    }
+}
+
+impl<'a> From<Cow<'a, str>> for StrBuilder<'a> {
+    fn from(s: Cow<'a, str>) -> Self {
+        Self { value: s }
     }
 }
 

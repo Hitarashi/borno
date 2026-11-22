@@ -51,7 +51,7 @@ casing = [
 ]
 
 # Identifier and Database Conventions
-conventions = ["case-snake", "case-pascal", "grammar"]
+conventions = ["case-snake", "case-pascal", "grammar", "util-slice"]
 
 # English Grammatical Inflections
 grammar = []

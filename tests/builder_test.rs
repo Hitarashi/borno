@@ -242,3 +242,190 @@ fn test_builder_flow_control_and_affix() {
         .into_string();
     assert_eq!(replaced, "bar baz");
 }
+
+#[test]
+fn test_builder_cow_zero_allocation_pipeline() {
+    use std::borrow::Cow;
+
+    use borno::{Case, StrBuilder};
+
+    let original = "user_account_id";
+    let builder = StrBuilder::new(original).trim().to_case(Case::Snake);
+    assert_eq!(builder.into_cow(), Cow::Borrowed("user_account_id"));
+
+    let sliced_builder = StrBuilder::new(original).before("_id");
+    assert_eq!(sliced_builder.into_cow(), Cow::Borrowed("user_account"));
+
+    let modified = StrBuilder::new(original)
+        .to_case(Case::Camel)
+        .finish("!")
+        .into_cow();
+    assert_eq!(modified, Cow::Owned::<str>("userAccountId!".to_string()));
+}
+
+#[test]
+fn test_builder_coverage_gaps() {
+    // Branches where transformation changes the string
+    assert_eq!(
+        StrBuilder::new("the old man and the sea")
+            .title_case_apa()
+            .into_string(),
+        "The Old Man and the Sea"
+    );
+    assert_eq!(
+        StrBuilder::new("hello").capitalize_first().into_string(),
+        "Hello"
+    );
+    assert_eq!(
+        StrBuilder::new(String::from("App::Models::User"))
+            .demodulize()
+            .into_string(),
+        "User"
+    );
+    assert_eq!(
+        StrBuilder::new(String::from("App::Models::User"))
+            .deconstantize()
+            .into_string(),
+        "App::Models"
+    );
+    assert_eq!(StrBuilder::new("user").pluralize().into_string(), "users");
+    assert_eq!(
+        StrBuilder::new("user")
+            .pluralize_with_count(2)
+            .into_string(),
+        "users"
+    );
+    assert_eq!(StrBuilder::new("path").start("/").into_string(), "/path");
+    assert_eq!(StrBuilder::new("path").finish("/").into_string(), "path/");
+    assert_eq!(
+        StrBuilder::new("path").ensure_wrap("<", ">").into_string(),
+        "<path>"
+    );
+    assert_eq!(
+        StrBuilder::new(String::from("user_profile_id"))
+            .after("_")
+            .into_string(),
+        "profile_id"
+    );
+    assert_eq!(
+        StrBuilder::new(String::from("user_profile_id"))
+            .after_last("_")
+            .into_string(),
+        "id"
+    );
+    assert_eq!(
+        StrBuilder::new(String::from("<div>content</div>"))
+            .between("<div>", "</div>")
+            .into_string(),
+        "content"
+    );
+    assert_eq!(
+        StrBuilder::new(String::from("<div>first</div><div>second</div>"))
+            .between_first("<div>", "</div>")
+            .into_string(),
+        "first"
+    );
+    assert_eq!(
+        StrBuilder::new("  hello   world  ").squish().into_string(),
+        "hello world"
+    );
+    assert_eq!(
+        StrBuilder::new(r"path\to\file")
+            .normalize_slashes()
+            .into_string(),
+        "path/to/file"
+    );
+    assert_eq!(
+        StrBuilder::new("<script>alert('xss')</script>")
+            .html_escape()
+            .into_string(),
+        "&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;"
+    );
+    assert_eq!(
+        StrBuilder::new("&lt;b&gt;bold&lt;/b&gt;")
+            .html_unescape()
+            .into_string(),
+        "<b>bold</b>"
+    );
+
+    // Branches where transformation does NOT change the string (zero-allocation / else branches)
+    assert_eq!(
+        StrBuilder::new("The Old Man and the Sea")
+            .title_case_apa()
+            .into_string(),
+        "The Old Man and the Sea"
+    );
+    assert_eq!(
+        StrBuilder::new("Hello").capitalize_first().into_string(),
+        "Hello"
+    );
+    assert_eq!(
+        StrBuilder::new(String::from("User"))
+            .demodulize()
+            .into_string(),
+        "User"
+    );
+    assert_eq!(
+        StrBuilder::new(String::from(""))
+            .deconstantize()
+            .into_string(),
+        ""
+    );
+    assert_eq!(StrBuilder::new("fish").pluralize().into_string(), "fish");
+    assert_eq!(
+        StrBuilder::new("fish")
+            .pluralize_with_count(2)
+            .into_string(),
+        "fish"
+    );
+    assert_eq!(StrBuilder::new("/path").start("/").into_string(), "/path");
+    assert_eq!(StrBuilder::new("path/").finish("/").into_string(), "path/");
+    assert_eq!(
+        StrBuilder::new("<path>")
+            .ensure_wrap("<", ">")
+            .into_string(),
+        "<path>"
+    );
+    assert_eq!(
+        StrBuilder::new(String::from("user"))
+            .after("")
+            .into_string(),
+        "user"
+    );
+    assert_eq!(
+        StrBuilder::new(String::from("user"))
+            .after_last("")
+            .into_string(),
+        "user"
+    );
+    assert_eq!(
+        StrBuilder::new(String::from(""))
+            .between("<a>", "</a>")
+            .into_string(),
+        ""
+    );
+    assert_eq!(
+        StrBuilder::new(String::from(""))
+            .between_first("<a>", "</a>")
+            .into_string(),
+        ""
+    );
+    assert_eq!(
+        StrBuilder::new("hello world").squish().into_string(),
+        "hello world"
+    );
+    assert_eq!(
+        StrBuilder::new("path/to/file")
+            .normalize_slashes()
+            .into_string(),
+        "path/to/file"
+    );
+    assert_eq!(
+        StrBuilder::new("hello").html_escape().into_string(),
+        "hello"
+    );
+    assert_eq!(
+        StrBuilder::new("hello").html_unescape().into_string(),
+        "hello"
+    );
+}
