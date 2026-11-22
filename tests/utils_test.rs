@@ -118,3 +118,89 @@ fn test_str_ext_fluent_helpers() {
     assert_eq!("Hello World".truncate(8), "Hello...");
     assert_eq!("secret".mask('*', 1, Some(4)), "s****t");
 }
+
+#[test]
+fn test_slicing_utilities() {
+    assert_eq!(before("user@example.com", "@"), "user");
+    assert_eq!(before_last("a.b.c.d", "."), "a.b.c");
+    assert_eq!(after("user@example.com", "@"), "example.com");
+    assert_eq!(after_last("a.b.c.d", "."), "d");
+    assert_eq!(between("name: [John Doe];", "[", "]"), "John Doe");
+    assert_eq!(between_first("[a] and [b]", "[", "]"), "a");
+
+    assert_eq!("user@example.com".before("@"), "user");
+    assert_eq!("a.b.c.d".before_last("."), "a.b.c");
+    assert_eq!("user@example.com".after("@"), "example.com");
+    assert_eq!("a.b.c.d".after_last("."), "d");
+    assert_eq!("<div>content</div>".between("<div>", "</div>"), "content");
+    assert_eq!("(x) + (y)".between_first("(", ")"), "x");
+}
+
+#[test]
+fn test_normalize_utilities() {
+    assert_eq!(squish("   hello   \t\n  world   "), "hello world");
+    assert_eq!("   clean   me   ".squish(), "clean me");
+
+    assert_eq!(
+        normalize_slashes("C:\\Users\\admin\\file.txt"),
+        "C:/Users/admin/file.txt"
+    );
+    assert_eq!("foo\\\\bar\\baz".normalize_slashes(), "foo//bar/baz");
+}
+
+#[test]
+fn test_text_and_terminal_utilities() {
+    assert_eq!(
+        html_escape("<script>alert(\"hello & goodbye\")</script>"),
+        "&lt;script&gt;alert(&quot;hello &amp; goodbye&quot;)&lt;/script&gt;"
+    );
+    assert_eq!(
+        html_unescape("&lt;b&gt;bold &amp; &quot;quoted&quot;&lt;/b&gt;"),
+        "<b>bold & \"quoted\"</b>"
+    );
+
+    assert_eq!("<p>hello</p>".html_escape(), "&lt;p&gt;hello&lt;/p&gt;");
+    assert_eq!("&lt;p&gt;hello&lt;/p&gt;".html_unescape(), "<p>hello</p>");
+
+    let wrapped = word_wrap("The quick brown fox jumps over the lazy dog", 15);
+    assert_eq!(wrapped, "The quick brown\nfox jumps over\nthe lazy dog");
+    assert_eq!(
+        "The quick brown fox jumps".word_wrap(12),
+        "The quick\nbrown fox\njumps"
+    );
+
+    let columns = ["Status", "OK", "Pending"];
+    let left = justify_columns(&columns, 10, Alignment::Left);
+    assert_eq!(left, vec!["Status    ", "OK        ", "Pending   "]);
+
+    let right = justify_columns(&columns, 10, Alignment::Right);
+    assert_eq!(right, vec!["    Status", "        OK", "   Pending"]);
+}
+
+#[test]
+fn test_interpolate_utilities() {
+    use std::collections::HashMap;
+
+    let params = [("name", "Alice"), ("action", "deployed")];
+    assert_eq!(
+        interpolate("User {{ name }} has {{ action }} the service.", &params),
+        "User Alice has deployed the service."
+    );
+
+    let mut map = HashMap::new();
+    map.insert("name", "Bob");
+    map.insert("action", "stopped");
+    assert_eq!(
+        interpolate_pairs("User {name} has :action the service.", map),
+        "User Bob has stopped the service."
+    );
+
+    assert_eq!(
+        "Hello, {{ user }}!".interpolate(&[("user", "Admin")]),
+        "Hello, Admin!"
+    );
+    assert_eq!(
+        "Deploying :env to :target".interpolate(&[("env", "prod"), ("target", "cloud")]),
+        "Deploying prod to cloud"
+    );
+}

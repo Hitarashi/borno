@@ -34,7 +34,7 @@ pub fn ordinal(number: i64) -> String {
 }
 
 /// Options for formatting arrays of strings into grammatical sentences.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SentenceOptions {
     /// Separator between list items (default: `", "`).

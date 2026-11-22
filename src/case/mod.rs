@@ -2,6 +2,7 @@
 
 pub mod camel;
 pub mod conventions;
+pub mod dot;
 pub mod kebab;
 pub mod pascal;
 pub mod sentence;
@@ -10,7 +11,11 @@ pub mod title;
 pub mod train;
 
 pub use camel::{is_camel_case, to_camel_case};
-pub use conventions::{classify, foreign_key, foreign_key_with_suffix, tableize};
+pub use conventions::{
+    classify, deconstantize, demodulize, foreign_key, foreign_key_with_suffix, headline, humanize,
+    is_foreign_key, is_foreign_key_with_suffix, tableize,
+};
+pub use dot::{is_dot_case, to_dot_case};
 pub use kebab::{is_kebab_case, to_kebab_case};
 pub use pascal::{is_pascal_case, to_pascal_case};
 pub use sentence::{is_sentence_case, to_sentence_case};

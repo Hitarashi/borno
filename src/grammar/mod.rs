@@ -90,10 +90,6 @@ impl Inflector {
 
     /// Converts a word or identifier into its plural form while preserving letter casing.
     pub fn pluralize(&self, word: &str) -> String {
-        if word.is_empty() {
-            return String::new();
-        }
-
         // Handle delimited compound strings (e.g., "user_profile", "user-profile", "user profile")
         if let Some(separator_index) = word.rfind(['_', '-', ' ']) {
             let prefix = &word[..=separator_index];
@@ -125,10 +121,6 @@ impl Inflector {
 
     /// Converts a word or identifier into its singular form while preserving letter casing.
     pub fn singularize(&self, word: &str) -> String {
-        if word.is_empty() {
-            return String::new();
-        }
-
         // Handle delimited compound strings
         if let Some(separator_index) = word.rfind(['_', '-', ' ']) {
             let prefix = &word[..=separator_index];

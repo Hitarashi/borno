@@ -1,7 +1,7 @@
 //! String truncation, word count limiting, and context excerpt extraction.
 
 /// Options for configuring character truncation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TruncateOptions {
     /// Suffix appended when truncation occurs (default: `"..."`).
@@ -90,7 +90,7 @@ pub fn words(input: &str, max_words: usize, suffix: &str) -> String {
 }
 
 /// Options for configuring context excerpt extraction.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ExcerptOptions {
     /// Number of characters to include before and after the matched search term (default: 50).

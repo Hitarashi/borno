@@ -114,6 +114,10 @@ fn test_zero_allocation_cow_borrowed() {
     let screaming = "USER_ACCOUNT_ID";
     let screaming_res = to_screaming_snake_case(screaming);
     assert!(matches!(screaming_res, Cow::Borrowed(_)));
+
+    let dot = "user.account.id";
+    let dot_res = to_dot_case(dot);
+    assert!(matches!(dot_res, Cow::Borrowed(_)));
 }
 
 #[test]
@@ -135,6 +139,10 @@ fn test_casing_predicates() {
 
     assert!("USER_ID".is_screaming_snake_case());
     assert!(!"user_id".is_screaming_snake_case());
+
+    assert!("user.id".is_dot_case());
+    assert!(!"user_id".is_dot_case());
+    assert!(!"UserId".is_dot_case());
 }
 
 #[test]
@@ -149,6 +157,21 @@ fn test_convention_helpers() {
 
     assert_eq!(tableize("Category"), "categories");
     assert_eq!(classify("categories"), "Category");
+
+    assert_eq!(headline("user_profile_id"), "User Profile Id");
+    assert_eq!(humanize("user_profile_id"), "User profile");
+    assert_eq!(humanize("user_profile"), "User profile");
+    assert_eq!(humanize("author_id"), "Author");
+
+    assert_eq!(demodulize("Network::Http::Client"), "Client");
+    assert_eq!(demodulize("Client"), "Client");
+    assert_eq!(deconstantize("Network::Http::Client"), "Network::Http");
+    assert_eq!(deconstantize("Client"), "");
+
+    assert!(is_foreign_key("user_id"));
+    assert!(is_foreign_key_with_suffix("account_uuid", "_uuid"));
+    assert!(!is_foreign_key("user_name"));
+    assert!(is_foreign_key_with_suffix("user_fk", "_fk"));
 }
 
 #[test]
@@ -159,7 +182,14 @@ fn test_all_str_ext_methods() {
     assert_eq!("user_id".to_title_case(), "User Id");
     assert_eq!("user_id".to_sentence_case(), "User id");
     assert_eq!("user_id".to_pascal_case(), "UserId");
+    assert_eq!("user_id".to_dot_case(), "user.id");
     assert_eq!("user_id".foreign_key(), "user_id_id");
+    assert_eq!("user_profile".headline(), "User Profile");
+    assert_eq!("user_profile".humanize(), "User profile");
+    assert_eq!("App::Config".demodulize(), "Config");
+    assert_eq!("App::Config".deconstantize(), "App");
+    assert!("user_id".is_foreign_key());
+    assert!("user.id".is_dot_case());
 
     assert!("User-Id".is_train_case());
     assert!(!"user_id".is_train_case());

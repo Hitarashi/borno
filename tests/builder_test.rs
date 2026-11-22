@@ -88,6 +88,53 @@ fn test_builder_all_methods() {
     let started = StrBuilder::new("path").start("/").into_string();
     assert_eq!(started, "/path");
 
+    let dot = StrBuilder::new("user_account_id").dot_case().into_string();
+    assert_eq!(dot, "user.account.id");
+
+    let hl = StrBuilder::new("user_profile_id").headline().into_string();
+    assert_eq!(hl, "User Profile Id");
+
+    let hum = StrBuilder::new("author_id").humanize().into_string();
+    assert_eq!(hum, "Author");
+
+    let squished = StrBuilder::new("  lots   of   spaces  \n\t ")
+        .squish()
+        .into_string();
+    assert_eq!(squished, "lots of spaces");
+
+    let norm_slash = StrBuilder::new("path\\to\\sub\\file.txt")
+        .normalize_slashes()
+        .into_string();
+    assert_eq!(norm_slash, "path/to/sub/file.txt");
+
+    let escaped = StrBuilder::new("<div>Hello & Welcome</div>")
+        .html_escape()
+        .into_string();
+    assert_eq!(escaped, "&lt;div&gt;Hello &amp; Welcome&lt;/div&gt;");
+
+    let unescaped = StrBuilder::new("&lt;b&gt;bold&lt;/b&gt;")
+        .html_unescape()
+        .into_string();
+    assert_eq!(unescaped, "<b>bold</b>");
+
+    let wrapped = StrBuilder::new("The quick brown fox jumps over the lazy dog")
+        .word_wrap(15)
+        .into_string();
+    assert_eq!(wrapped, "The quick brown\nfox jumps over\nthe lazy dog");
+
+    let interp = StrBuilder::new("Welcome to {{ name }}!")
+        .interpolate(&[("name", "Borno")])
+        .into_string();
+    assert_eq!(interp, "Welcome to Borno!");
+
+    let interp_p = StrBuilder::new("Host: :host Port: :port")
+        .interpolate(&[("host", "localhost"), ("port", "8080")])
+        .into_string();
+    assert_eq!(interp_p, "Host: localhost Port: 8080");
+
+    let trimmed = StrBuilder::new("  hello world  ").trim().build();
+    assert_eq!(trimmed, "hello world");
+
     let from_str: StrBuilder = "test".into();
     assert_eq!(from_str.into_string(), "test");
 

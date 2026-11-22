@@ -7,7 +7,7 @@ mod transliterate;
 use transliterate::transliterate_char;
 
 /// Configuration options for URL slug generation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SlugOptions {
     /// Delimiter separating words (default: `'-'`).

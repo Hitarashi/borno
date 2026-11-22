@@ -2,6 +2,8 @@ use borno::{StrExt, grammar::*};
 
 #[test]
 fn test_irregular_roundtrip() {
+    assert_eq!(pluralize(""), "");
+    assert_eq!(singularize(""), "");
     let pairs = [
         ("person", "people"),
         ("man", "men"),
@@ -87,6 +89,9 @@ fn test_regular_roundtrip() {
         ("calf", "calves"),
         ("elf", "elves"),
         ("scarf", "scarves"),
+        ("roof", "roofs"),
+        ("chef", "chefs"),
+        ("cliff", "cliffs"),
         ("hero", "heroes"),
         ("potato", "potatoes"),
         ("tomato", "tomatoes"),

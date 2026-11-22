@@ -24,10 +24,12 @@ transformations, URL slugification, and string utilities.
     - `Title Case` (e.g. `User Account Id`).
     - `Train-Case` / `Header-Case` (e.g. `User-Account-Id`).
     - `Sentence case` (e.g. `User account id`).
-    - Relational schema naming conventions: `classify` (`user_profiles` $\to$ `UserProfile`), `tableize` (`UserProfile`
-      $\to$ `user_profiles`), `foreign_key` (`UserProfile` $\to$ `user_profile_id`).
+    - `dot.case` (e.g. `user.account.id`) for hierarchical configuration keys and metrics identifiers.
+    - Relational schema and identifier naming conventions: `classify` (`user_profiles` $\to$ `UserProfile`), `tableize`
+      (`UserProfile` $\to$ `user_profiles`), `foreign_key` (`UserProfile` $\to$ `user_profile_id`), `is_foreign_key`,
+      `headline`, `humanize`, `demodulize`, and `deconstantize`.
     - Acronym grouping support (`HTTPResponse` $\to$ `http_response`).
-    - Zero-allocation predicates (`is_snake_case`, `is_camel_case`, `is_pascal_case`, etc.).
+    - Zero-allocation predicates (`is_snake_case`, `is_camel_case`, `is_pascal_case`, `is_dot_case`, etc.).
     - Zero-copy `Cow<'_, str>` return types returning `Cow::Borrowed` when the input already matches the target casing.
 
 3. **URL Slugification**:
@@ -35,6 +37,11 @@ transformations, URL slugification, and string utilities.
     - Configurable delimiters, case folding, and character sanitization via `SlugOptions`.
 
 4. **String Utilities**:
+    - Delimiter-aware slicing: `before`, `before_last`, `after`, `after_last`, `between`, `between_first`.
+    - Normalization: `squish` (whitespace collapsing), `normalize_slashes` (Windows backslash to forward slash).
+    - HTML entity encoding/decoding: `html_escape`, `html_unescape`.
+    - Terminal and text formatting: `word_wrap`, `WordWrapOptions`, `justify_columns`, `Alignment`.
+    - Template interpolation: `interpolate`, `interpolate_pairs` supporting `{{ key }}`, `{ key }`, and `:key` tokens.
     - Truncation with whole-word preservation and custom ellipsis: `truncate`, `words`, and contextual `excerpt`.
     - Sensitive data masking: `mask`, `mask_email`.
     - Padding and boundary guards: `pad_start`, `pad_end`, `pad_both`, `start`, `finish`, `wrap`, `unwrap`.
