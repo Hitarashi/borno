@@ -71,9 +71,13 @@ fn test_regular_roundtrip() {
         ("glass", "glasses"),
         ("status", "statuses"),
         ("virus", "viruses"),
+        ("bus", "buses"),
+        ("blouse", "blouses"),
         ("knife", "knives"),
         ("wife", "wives"),
         ("life", "lives"),
+        ("safe", "safes"),
+        ("wave", "waves"),
         ("half", "halves"),
         ("wolf", "wolves"),
         ("shelf", "shelves"),
@@ -178,6 +182,9 @@ fn test_compound_identifiers() {
 
     assert_eq!(pluralize("UserAccount"), "UserAccounts");
     assert_eq!(singularize("UserAccounts"), "UserAccount");
+
+    assert_eq!(pluralize("user_account_"), "user_account_s");
+    assert_eq!(singularize("user_accounts_"), "user_accounts_");
 }
 
 #[test]
@@ -206,6 +213,9 @@ fn test_custom_rule_engine() {
             .add_plural_rule(r"([a-zA-Z0-9_]*)person$", "${1}peeps")
             .unwrap();
         assert_eq!(custom.pluralize("salesperson"), "salespeeps");
+
+        assert!(custom.add_plural_rule(r"[invalid", "peeps").is_err());
+        assert!(custom.add_singular_rule(r"[invalid", "peep").is_err());
     }
 }
 
@@ -222,5 +232,8 @@ fn test_global_inflector_registration() {
     {
         add_singular_rule(r"([a-zA-Z0-9_]*)peeps$", "${1}person").unwrap();
         assert_eq!(singularize("salespeeps"), "salesperson");
+
+        assert!(add_plural_rule(r"[invalid", "peeps").is_err());
+        assert!(add_singular_rule(r"[invalid", "peep").is_err());
     }
 }
