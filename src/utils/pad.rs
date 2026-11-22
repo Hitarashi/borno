@@ -155,6 +155,75 @@ pub fn unwrap<'a>(input: &'a str, before: &str, after: &str) -> &'a str {
     }
 }
 
+/// Ensures a string starts with a prefix and ends with a suffix without duplicating them.
+///
+/// # Examples
+/// ```
+/// use borno::utils::ensure_wrap;
+///
+/// assert_eq!(ensure_wrap("value", "/", "/"), "/value/");
+/// assert_eq!(ensure_wrap("/value", "/", "/"), "/value/");
+/// assert_eq!(ensure_wrap("/value/", "/", "/"), "/value/");
+/// ```
+#[must_use]
+pub fn ensure_wrap(input: &str, before: &str, after: &str) -> String {
+    let with_before = if input.starts_with(before) { input } else { "" };
+
+    let needs_before = with_before.is_empty() && !before.is_empty();
+    let needs_after = !input.ends_with(after) && !after.is_empty();
+
+    if !needs_before && !needs_after {
+        return input.to_string();
+    }
+
+    let mut result = String::with_capacity(
+        if needs_before { before.len() } else { 0 }
+            + input.len()
+            + if needs_after { after.len() } else { 0 },
+    );
+
+    if needs_before {
+        result.push_str(before);
+    }
+    result.push_str(input);
+    if needs_after {
+        result.push_str(after);
+    }
+    result
+}
+
+/// Semantic alias for [`wrap`].
+#[inline]
+#[must_use]
+pub fn surround(input: &str, before: &str, after: &str) -> String {
+    wrap(input, before, after)
+}
+
+/// Strips matching enclosing double quotes (`"`) or single quotes (`'`) from a string.
+///
+/// If the string is not enclosed in matching quotes, it is returned unchanged.
+/// Operates with zero heap allocations.
+///
+/// # Examples
+/// ```
+/// use borno::utils::unwrap_quotes;
+///
+/// assert_eq!(unwrap_quotes("\"hello\""), "hello");
+/// assert_eq!(unwrap_quotes("'world'"), "world");
+/// assert_eq!(unwrap_quotes("\"mismatched'"), "\"mismatched'");
+/// assert_eq!(unwrap_quotes("unquoted"), "unquoted");
+/// ```
+#[must_use]
+pub fn unwrap_quotes(input: &str) -> &str {
+    if input.len() >= 2
+        && ((input.starts_with('"') && input.ends_with('"'))
+            || (input.starts_with('\'') && input.ends_with('\'')))
+    {
+        return &input[1..input.len() - 1];
+    }
+    input
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -178,8 +247,21 @@ mod tests {
     #[test]
     fn test_wrap_unwrap() {
         assert_eq!(wrap("value", "\"", "\""), "\"value\"");
+        assert_eq!(surround("value", "<", ">"), "<value>");
         assert_eq!(unwrap("\"value\"", "\"", "\""), "value");
         assert_eq!(unwrap("<tag>", "<", ">"), "tag");
         assert_eq!(unwrap("tag", "<", ">"), "tag");
+
+        assert_eq!(ensure_wrap("value", "/", "/"), "/value/");
+        assert_eq!(ensure_wrap("/value", "/", "/"), "/value/");
+        assert_eq!(ensure_wrap("value/", "/", "/"), "/value/");
+        assert_eq!(ensure_wrap("/value/", "/", "/"), "/value/");
+
+        assert_eq!(unwrap_quotes("\"quoted\""), "quoted");
+        assert_eq!(unwrap_quotes("'quoted'"), "quoted");
+        assert_eq!(unwrap_quotes("\"mismatched'"), "\"mismatched'");
+        assert_eq!(unwrap_quotes("unquoted"), "unquoted");
+        assert_eq!(unwrap_quotes("\""), "\"");
+        assert_eq!(unwrap_quotes(""), "");
     }
 }

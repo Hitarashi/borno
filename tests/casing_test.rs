@@ -228,4 +228,11 @@ fn test_all_str_ext_methods() {
         "Hello World".to_slug_with_options(&slug_opts),
         "hello_world"
     );
+
+    assert_eq!(
+        "the old man and the sea".to_title_case_apa(),
+        "The Old Man and the Sea"
+    );
+    assert!("The Old Man and the Sea".is_title_case_apa());
+    assert_eq!("Hello World!".swap_case(), "hELLO wORLD!");
 }

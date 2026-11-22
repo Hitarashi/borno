@@ -2,6 +2,18 @@
 
 use std::{fmt, ops::Deref};
 
+#[cfg(any(
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-camel",
+    feature = "case-pascal",
+    feature = "case-kebab",
+    feature = "case-train",
+    feature = "case-title",
+    feature = "case-sentence",
+    feature = "case-dot"
+))]
+use crate::case::swap_case;
 #[cfg(feature = "case-camel")]
 use crate::case::to_camel_case;
 #[cfg(feature = "case-dot")]
@@ -16,18 +28,20 @@ use crate::case::to_screaming_snake_case;
 use crate::case::to_sentence_case;
 #[cfg(feature = "case-snake")]
 use crate::case::to_snake_case;
-#[cfg(feature = "case-title")]
-use crate::case::to_title_case;
 #[cfg(feature = "case-train")]
 use crate::case::to_train_case;
 #[cfg(feature = "conventions")]
 use crate::case::{classify, deconstantize, demodulize, foreign_key, headline, humanize, tableize};
+#[cfg(feature = "case-title")]
+use crate::case::{to_title_case, to_title_case_apa};
 #[cfg(feature = "grammar")]
 use crate::grammar::{
     pluralize, pluralize_with_count, pluralize_with_count_inclusive, singularize,
 };
 #[cfg(feature = "slug")]
 use crate::slug::{SlugOptions, slugify, slugify_with_options};
+#[cfg(feature = "util-format")]
+use crate::utils::deordinalize;
 #[cfg(feature = "util-interpolate")]
 use crate::utils::interpolate;
 #[cfg(feature = "util-mask")]
@@ -39,9 +53,11 @@ use crate::utils::{
     WordWrapOptions, html_escape, html_unescape, word_wrap, word_wrap_with_options,
 };
 #[cfg(feature = "util-slice")]
-use crate::utils::{after, after_last, before, before_last, between, between_first};
+use crate::utils::{
+    after, after_last, before, before_last, between, between_first, chop_end, chop_start,
+};
 #[cfg(feature = "util-pad")]
-use crate::utils::{finish, start, wrap};
+use crate::utils::{ensure_wrap, finish, start, surround, unwrap_quotes, wrap};
 #[cfg(feature = "util-normalize")]
 use crate::utils::{normalize_slashes, squish};
 
@@ -105,6 +121,30 @@ impl StrBuilder {
     #[cfg(feature = "case-title")]
     pub fn title_case(mut self) -> Self {
         self.value = to_title_case(&self.value).into_owned();
+        self
+    }
+
+    /// Transforms the inner string into APA Title Case.
+    #[cfg(feature = "case-title")]
+    pub fn title_case_apa(mut self) -> Self {
+        self.value = to_title_case_apa(&self.value).into_owned();
+        self
+    }
+
+    /// Inverts character cases throughout the inner string.
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot"
+    ))]
+    pub fn swap_case(mut self) -> Self {
+        self.value = swap_case(&self.value);
         self
     }
 
@@ -266,6 +306,27 @@ impl StrBuilder {
         self
     }
 
+    /// Ensures the inner string begins with a prefix and terminates with a suffix without duplication.
+    #[cfg(feature = "util-pad")]
+    pub fn ensure_wrap(mut self, before_val: &str, after_val: &str) -> Self {
+        self.value = ensure_wrap(&self.value, before_val, after_val);
+        self
+    }
+
+    /// Semantic alias for [`wrap`].
+    #[cfg(feature = "util-pad")]
+    pub fn surround(mut self, before_val: &str, after_val: &str) -> Self {
+        self.value = surround(&self.value, before_val, after_val);
+        self
+    }
+
+    /// Strips matching enclosing quotes (single or double) from the inner string.
+    #[cfg(feature = "util-pad")]
+    pub fn unwrap_quotes(mut self) -> Self {
+        self.value = unwrap_quotes(&self.value).to_string();
+        self
+    }
+
     /// Slices the inner string before the first occurrence of a delimiter.
     #[cfg(feature = "util-slice")]
     pub fn before(mut self, delimiter: &str) -> Self {
@@ -305,6 +366,27 @@ impl StrBuilder {
     #[cfg(feature = "util-slice")]
     pub fn between_first(mut self, start_delim: &str, end_delim: &str) -> Self {
         self.value = between_first(&self.value, start_delim, end_delim).into_owned();
+        self
+    }
+
+    /// Removes a leading prefix if present.
+    #[cfg(feature = "util-slice")]
+    pub fn chop_start(mut self, needle: &str) -> Self {
+        self.value = chop_start(&self.value, needle).to_string();
+        self
+    }
+
+    /// Removes a trailing suffix if present.
+    #[cfg(feature = "util-slice")]
+    pub fn chop_end(mut self, needle: &str) -> Self {
+        self.value = chop_end(&self.value, needle).to_string();
+        self
+    }
+
+    /// Strips an English ordinal suffix from a number string.
+    #[cfg(feature = "util-format")]
+    pub fn deordinalize(mut self) -> Self {
+        self.value = deordinalize(&self.value).to_string();
         self
     }
 
@@ -585,5 +667,33 @@ mod tests {
 
         let upper = StrBuilder::new("hello").uppercase().into_string();
         assert_eq!(upper, "HELLO");
+
+        let title_apa = StrBuilder::new("the old man and the sea")
+            .title_case_apa()
+            .into_string();
+        assert_eq!(title_apa, "The Old Man and the Sea");
+
+        let swapped = StrBuilder::new("Hello World!").swap_case().into_string();
+        assert_eq!(swapped, "hELLO wORLD!");
+
+        let chopped_s = StrBuilder::new("https://example.com")
+            .chop_start("https://")
+            .into_string();
+        assert_eq!(chopped_s, "example.com");
+
+        let chopped_e = StrBuilder::new("file.tar.gz").chop_end(".gz").into_string();
+        assert_eq!(chopped_e, "file.tar");
+
+        let deord = StrBuilder::new("22nd").deordinalize().into_string();
+        assert_eq!(deord, "22");
+
+        let ens_wrap = StrBuilder::new("path").ensure_wrap("/", "/").into_string();
+        assert_eq!(ens_wrap, "/path/");
+
+        let surr = StrBuilder::new("tag").surround("<", ">").into_string();
+        assert_eq!(surr, "<tag>");
+
+        let unwrapped_q = StrBuilder::new("\"quoted\"").unwrap_quotes().into_string();
+        assert_eq!(unwrapped_q, "quoted");
     }
 }

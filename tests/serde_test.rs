@@ -1,7 +1,8 @@
 #![cfg(all(feature = "serde", feature = "full"))]
 
 use borno::{
-    Alignment, ExcerptOptions, SentenceOptions, SlugOptions, TruncateOptions, WordWrapOptions,
+    Alignment, BytesOptions, BytesStandard, BytesUnit, ExcerptOptions, SentenceOptions,
+    SlugOptions, TruncateOptions, WordWrapOptions,
 };
 
 #[test]
@@ -45,4 +46,14 @@ fn test_serde_json_roundtrip() {
     let deserialized: WordWrapOptions =
         serde_json::from_str(&json).expect("deserialize word wrap options");
     assert_eq!(wrap_opts, deserialized);
+
+    let bytes_opts = BytesOptions::new()
+        .with_decimal_places(3)
+        .with_fixed_decimals(true)
+        .with_standard(BytesStandard::Decimal)
+        .with_unit(BytesUnit::MB);
+    let json = serde_json::to_string(&bytes_opts).expect("serialize bytes options");
+    let deserialized: BytesOptions =
+        serde_json::from_str(&json).expect("deserialize bytes options");
+    assert_eq!(bytes_opts, deserialized);
 }

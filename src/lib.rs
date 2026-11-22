@@ -64,12 +64,26 @@ pub mod slug;
     feature = "util-truncate",
     feature = "util-mask",
     feature = "util-pad",
-    feature = "util-format"
+    feature = "util-format",
+    feature = "util-bytes",
+    feature = "util-duration"
 ))]
 pub mod utils;
 
 #[cfg(feature = "builder")]
 pub use builder::StrBuilder;
+#[cfg(any(
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-camel",
+    feature = "case-pascal",
+    feature = "case-kebab",
+    feature = "case-train",
+    feature = "case-title",
+    feature = "case-sentence",
+    feature = "case-dot"
+))]
+pub use case::swap_case;
 #[cfg(feature = "conventions")]
 pub use case::{
     classify, deconstantize, demodulize, foreign_key, foreign_key_with_suffix, headline, humanize,
@@ -90,7 +104,7 @@ pub use case::{is_sentence_case, to_sentence_case};
 #[cfg(feature = "case-snake")]
 pub use case::{is_snake_case, to_snake_case};
 #[cfg(feature = "case-title")]
-pub use case::{is_title_case, to_title_case};
+pub use case::{is_title_case, is_title_case_apa, to_title_case, to_title_case_apa};
 #[cfg(feature = "case-train")]
 pub use case::{is_train_case, to_train_case};
 #[cfg(feature = "ext")]
@@ -109,14 +123,28 @@ pub use utils::{
     Alignment, WordWrapOptions, html_escape, html_unescape, justify_columns, word_wrap,
     word_wrap_with_options,
 };
+#[cfg(feature = "util-bytes")]
+pub use utils::{
+    BytesOptions, BytesStandard, BytesUnit, ParseBytesError, format_bytes,
+    format_bytes_with_options, parse_bytes,
+};
 #[cfg(feature = "util-truncate")]
 pub use utils::{ExcerptOptions, TruncateOptions, excerpt, truncate, words};
+#[cfg(feature = "util-duration")]
+pub use utils::{ParseDurationError, format_duration, format_duration_verbose, parse_duration};
 #[cfg(feature = "util-format")]
-pub use utils::{SentenceOptions, ordinal, sentence, sentence_with_options};
+pub use utils::{
+    SentenceOptions, deordinalize, ordinal, ordinal_suffix, sentence, sentence_with_options,
+};
 #[cfg(feature = "util-slice")]
-pub use utils::{after, after_last, before, before_last, between, between_first};
+pub use utils::{
+    after, after_last, before, before_last, between, between_first, chop_end, chop_start,
+    contains_all, contains_any, is_empty_or_whitespace,
+};
 #[cfg(feature = "util-pad")]
-pub use utils::{finish, pad_both, pad_end, pad_start, start, unwrap, wrap};
+pub use utils::{
+    ensure_wrap, finish, pad_both, pad_end, pad_start, start, surround, unwrap, unwrap_quotes, wrap,
+};
 #[cfg(feature = "util-interpolate")]
 pub use utils::{interpolate, interpolate_pairs};
 #[cfg(feature = "util-mask")]
@@ -138,6 +166,16 @@ pub mod prelude {
     pub use super::utils::SentenceOptions;
     #[cfg(feature = "util-text")]
     pub use super::utils::{Alignment, WordWrapOptions};
+    #[cfg(feature = "util-bytes")]
+    pub use super::utils::{BytesOptions, BytesStandard, BytesUnit};
     #[cfg(feature = "util-truncate")]
     pub use super::utils::{ExcerptOptions, TruncateOptions};
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_crate_loads() {
+        assert_eq!(2 + 2, 4);
+    }
 }

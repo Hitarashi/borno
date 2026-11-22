@@ -241,3 +241,150 @@ fn test_final_coverage_boosters() {
     assert_eq!(default_inf.pluralize("userAccount"), "userAccounts");
     assert_eq!(default_inf.singularize("userAccounts"), "userAccount");
 }
+
+#[test]
+fn test_bytes_duration_title_coverage_boosters() {
+    use borno::{
+        BytesOptions, BytesStandard, BytesUnit, ParseBytesError, ParseDurationError,
+        case::{is_title_case_apa, to_title_case_apa},
+        utils::{format_bytes_with_options, format_duration_verbose, parse_bytes, parse_duration},
+    };
+
+    // BytesUnit symbols & standard base
+    let units = [
+        BytesUnit::B,
+        BytesUnit::KB,
+        BytesUnit::MB,
+        BytesUnit::GB,
+        BytesUnit::TB,
+        BytesUnit::PB,
+        BytesUnit::KiB,
+        BytesUnit::MiB,
+        BytesUnit::GiB,
+        BytesUnit::TiB,
+        BytesUnit::PiB,
+    ];
+    for u in units {
+        let sym = u.symbol();
+        assert!(!sym.is_empty());
+        let opts = BytesOptions::new().with_unit(u);
+        let formatted = format_bytes_with_options(1024 * 1024, &opts);
+        assert!(formatted.ends_with(sym));
+    }
+
+    assert_eq!(BytesStandard::Decimal.base(), 1000);
+    assert_eq!(BytesStandard::Binary.base(), 1024);
+
+    // ParseBytesError Display formatting
+    let errs = [
+        ParseBytesError::EmptyInput,
+        ParseBytesError::InvalidFormat("bad".to_string()),
+        ParseBytesError::InvalidNumber("NaN".to_string()),
+        ParseBytesError::UnknownUnit("foo".to_string()),
+        ParseBytesError::Overflow,
+    ];
+    for err in &errs {
+        let displayed = format!("{err}");
+        assert!(!displayed.is_empty());
+    }
+
+    // ParseDurationError Display formatting
+    let dur_errs = [
+        ParseDurationError::EmptyInput,
+        ParseDurationError::InvalidFormat("bad".to_string()),
+        ParseDurationError::InvalidNumber("NaN".to_string()),
+        ParseDurationError::UnknownUnit("foo".to_string()),
+        ParseDurationError::Overflow,
+    ];
+    for err in &dur_errs {
+        let displayed = format!("{err}");
+        assert!(!displayed.is_empty());
+    }
+
+    // Fractional duration and compound durations
+    let half_hour = parse_duration("0.5 hours").unwrap();
+    assert_eq!(half_hour, std::time::Duration::from_secs(1800));
+
+    let compound_frac = parse_duration("1.5h, 30.5s").unwrap();
+    assert_eq!(
+        compound_frac,
+        std::time::Duration::from_secs(5400) + std::time::Duration::from_millis(30500)
+    );
+
+    // Title case APA negative branches
+    assert!(!is_title_case_apa("The_Old_Man"));
+    assert!(!is_title_case_apa("The And Sea"));
+    assert!(!is_title_case_apa("ThE Old Man"));
+    assert!(!is_title_case_apa("The Old MaN"));
+
+    let empty_apa = to_title_case_apa("");
+    assert_eq!(empty_apa, "");
+
+    // Additional units for bytes
+    assert_eq!(parse_bytes("1 TB").unwrap(), 1_099_511_627_776);
+    assert_eq!(parse_bytes("1 TiB").unwrap(), 1_099_511_627_776);
+    assert_eq!(parse_bytes("1 PB").unwrap(), 1_125_899_906_842_624);
+    assert_eq!(parse_bytes("1 PiB").unwrap(), 1_125_899_906_842_624);
+    assert_eq!(parse_bytes("1 GiB").unwrap(), 1_073_741_824);
+    assert_eq!(parse_bytes("1 gibibyte").unwrap(), 1_073_741_824);
+    assert_eq!(parse_bytes("1 gibibytes").unwrap(), 1_073_741_824);
+
+    // Separators and zero decimals
+    let custom_sep = BytesOptions::new().with_unit_separator("-");
+    assert_eq!(format_bytes_with_options(1024, &custom_sep), "1-KB");
+
+    let zero_decimals = BytesOptions::new().with_decimal_places(0);
+    assert_eq!(format_bytes_with_options(1024, &zero_decimals), "1 KB");
+
+    let millions_bytes = BytesOptions::new()
+        .with_unit(BytesUnit::B)
+        .with_thousands_separator(",");
+    assert_eq!(
+        format_bytes_with_options(10_000_000, &millions_bytes),
+        "10,000,000 B"
+    );
+
+    // Invalid numbers and edge cases in bytes
+    assert!(parse_bytes("1.2.3 MB").is_err());
+    assert!(parse_bytes(". MB").is_err());
+    assert!(parse_bytes("999999999999999999999 TB").is_err());
+    assert!(parse_bytes("NaN MB").is_err());
+    assert!(parse_bytes("inf MB").is_err());
+    let huge_bytes = format!("{} MB", "9".repeat(320));
+    assert!(parse_bytes(&huge_bytes).is_err());
+
+    // Duration edge cases
+    assert_eq!(
+        format_duration_verbose(std::time::Duration::from_millis(
+            86_400_000 + 3_600_000 + 60_000 + 1_000 + 1
+        )),
+        "1 day, 1 hour, 1 minute, 1 second, 1 millisecond"
+    );
+    assert_eq!(
+        format_duration_verbose(std::time::Duration::from_millis(
+            2 * 86_400_000 + 2 * 3_600_000 + 2 * 60_000 + 2 * 1_000 + 2
+        )),
+        "2 days, 2 hours, 2 minutes, 2 seconds, 2 milliseconds"
+    );
+
+    assert_eq!(
+        parse_duration("1 hour, ").unwrap(),
+        std::time::Duration::from_secs(3600)
+    );
+    assert!(parse_duration("1.2.3 s").is_err());
+    assert!(parse_duration(". s").is_err());
+    assert!(parse_duration("-5 s").is_err());
+    assert!(parse_duration("NaN s").is_err());
+    assert!(parse_duration("inf s").is_err());
+    let huge_dur = format!("{} s", "9".repeat(320));
+    assert!(parse_duration(&huge_dur).is_err());
+    assert!(parse_duration(", , ,").is_err());
+    let dur_overflow = format!("{} s, {} s", u64::MAX / 2 + 1000, u64::MAX / 2 + 1000);
+    assert!(parse_duration(&dur_overflow).is_err());
+    assert!(parse_duration("100000000000000000000000 days").is_err());
+    assert!(parse_duration("100").is_err());
+
+    // Title case APA edge cases
+    assert!(!is_title_case_apa("Hello W@rld"));
+    assert!(!is_title_case_apa("HeLLo World"));
+}

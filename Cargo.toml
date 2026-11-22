@@ -65,6 +65,8 @@ util-truncate = []
 util-mask = []
 util-pad = []
 util-format = []
+util-bytes = []
+util-duration = []
 
 utils = [
     "util-slice",
@@ -75,6 +77,8 @@ utils = [
     "util-mask",
     "util-pad",
     "util-format",
+    "util-bytes",
+    "util-duration",
 ]
 
 # Ergonomics

@@ -143,6 +143,106 @@ pub fn between_first<'a>(
     between(input, start_delimiter, end_delimiter)
 }
 
+/// Removes a prefix from the start of a string slice if present.
+///
+/// If `needle` is empty or not found at the start, the original slice is returned unchanged.
+/// This operation is completely zero-allocation.
+///
+/// # Examples
+/// ```
+/// use borno::utils::chop_start;
+///
+/// assert_eq!(chop_start("https://example.com", "https://"), "example.com");
+/// assert_eq!(chop_start("example.com", "https://"), "example.com");
+/// assert_eq!(chop_start("hello", ""), "hello");
+/// ```
+#[inline]
+#[must_use]
+pub fn chop_start<'a>(input: &'a str, needle: &str) -> &'a str {
+    if needle.is_empty() {
+        input
+    } else {
+        input.strip_prefix(needle).unwrap_or(input)
+    }
+}
+
+/// Removes a suffix from the end of a string slice if present.
+///
+/// If `needle` is empty or not found at the end, the original slice is returned unchanged.
+/// This operation is completely zero-allocation.
+///
+/// # Examples
+/// ```
+/// use borno::utils::chop_end;
+///
+/// assert_eq!(chop_end("filename.tar.gz", ".gz"), "filename.tar");
+/// assert_eq!(chop_end("filename.tar", ".gz"), "filename.tar");
+/// assert_eq!(chop_end("hello", ""), "hello");
+/// ```
+#[inline]
+#[must_use]
+pub fn chop_end<'a>(input: &'a str, needle: &str) -> &'a str {
+    if needle.is_empty() {
+        input
+    } else {
+        input.strip_suffix(needle).unwrap_or(input)
+    }
+}
+
+/// Checks whether a haystack contains all of the specified needles.
+///
+/// Returns `true` if `needles` is empty.
+///
+/// # Examples
+/// ```
+/// use borno::utils::contains_all;
+///
+/// assert!(contains_all("the quick brown fox", &["quick", "fox"]));
+/// assert!(!contains_all("the quick brown fox", &["quick", "dog"]));
+/// assert!(contains_all("anything", &[]));
+/// ```
+#[inline]
+#[must_use]
+pub fn contains_all(haystack: &str, needles: &[&str]) -> bool {
+    needles.iter().all(|needle| haystack.contains(needle))
+}
+
+/// Checks whether a haystack contains any of the specified needles.
+///
+/// Returns `false` if `needles` is empty.
+///
+/// # Examples
+/// ```
+/// use borno::utils::contains_any;
+///
+/// assert!(contains_any("the quick brown fox", &["cat", "dog", "fox"]));
+/// assert!(!contains_any("the quick brown fox", &["cat", "dog"]));
+/// assert!(!contains_any("anything", &[]));
+/// ```
+#[inline]
+#[must_use]
+pub fn contains_any(haystack: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| haystack.contains(needle))
+}
+
+/// Checks whether a string slice is empty or contains only Unicode whitespace scalar values.
+///
+/// Operates with zero heap allocations.
+///
+/// # Examples
+/// ```
+/// use borno::utils::is_empty_or_whitespace;
+///
+/// assert!(is_empty_or_whitespace(""));
+/// assert!(is_empty_or_whitespace("   \t\n\r  "));
+/// assert!(!is_empty_or_whitespace("  hello  "));
+/// ```
+#[inline]
+#[must_use]
+pub fn is_empty_or_whitespace(input: &str) -> bool {
+    input.trim().is_empty()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,5 +287,28 @@ mod tests {
         assert_eq!(between("content", "", "]"), "");
         assert_eq!(between("content", "[", ""), "");
         assert_eq!(between_first("prefix[content]suffix", "[", "]"), "content");
+    }
+
+    #[test]
+    fn test_chop_and_predicates() {
+        assert_eq!(chop_start("https://example.com", "https://"), "example.com");
+        assert_eq!(chop_start("example.com", "https://"), "example.com");
+        assert_eq!(chop_start("example.com", ""), "example.com");
+
+        assert_eq!(chop_end("filename.tar.gz", ".gz"), "filename.tar");
+        assert_eq!(chop_end("filename.tar", ".gz"), "filename.tar");
+        assert_eq!(chop_end("filename.tar", ""), "filename.tar");
+
+        assert!(contains_all("apple banana cherry", &["apple", "cherry"]));
+        assert!(!contains_all("apple banana cherry", &["apple", "date"]));
+        assert!(contains_all("anything", &[]));
+
+        assert!(contains_any("apple banana cherry", &["date", "banana"]));
+        assert!(!contains_any("apple banana cherry", &["date", "fig"]));
+        assert!(!contains_any("anything", &[]));
+
+        assert!(is_empty_or_whitespace(""));
+        assert!(is_empty_or_whitespace("   \r\n\t "));
+        assert!(!is_empty_or_whitespace("   a   "));
     }
 }

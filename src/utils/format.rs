@@ -1,5 +1,37 @@
 //! Number ordinalization and list sentence formatting.
 
+/// Returns the English ordinal suffix (`"st"`, `"nd"`, `"rd"`, or `"th"`) for an integer.
+///
+/// This function operates with zero heap allocations.
+///
+/// # Examples
+/// ```
+/// use borno::utils::ordinal_suffix;
+///
+/// assert_eq!(ordinal_suffix(1), "st");
+/// assert_eq!(ordinal_suffix(2), "nd");
+/// assert_eq!(ordinal_suffix(3), "rd");
+/// assert_eq!(ordinal_suffix(4), "th");
+/// assert_eq!(ordinal_suffix(11), "th");
+/// assert_eq!(ordinal_suffix(21), "st");
+/// ```
+#[inline]
+#[must_use]
+pub const fn ordinal_suffix(number: i64) -> &'static str {
+    let absolute = number.unsigned_abs();
+    let mod_hundred = absolute % 100;
+    if mod_hundred >= 11 && mod_hundred <= 13 {
+        "th"
+    } else {
+        match absolute % 10 {
+            1 => "st",
+            2 => "nd",
+            3 => "rd",
+            _ => "th",
+        }
+    }
+}
+
 /// Converts an integer into its English ordinal representation.
 ///
 /// # Examples
@@ -16,21 +48,50 @@
 /// assert_eq!(ordinal(21), "21st");
 /// assert_eq!(ordinal(102), "102nd");
 /// ```
+#[must_use]
 pub fn ordinal(number: i64) -> String {
-    let absolute = number.unsigned_abs();
-    let mod_hundred = absolute % 100;
-    let suffix = if (11..=13).contains(&mod_hundred) {
-        "th"
-    } else {
-        match absolute % 10 {
-            1 => "st",
-            2 => "nd",
-            3 => "rd",
-            _ => "th",
-        }
-    };
-
+    let suffix = ordinal_suffix(number);
     format!("{number}{suffix}")
+}
+
+/// Strips an English ordinal suffix (`st`, `nd`, `rd`, `th`) from a string.
+///
+/// Only removes the suffix if it is preceded by an ASCII digit. Strings that look
+/// like decimals (containing `.`) or regular words (such as `"south"`, `"band"`, `"nest"`)
+/// are returned unchanged. Operates with zero heap allocations.
+///
+/// # Examples
+/// ```
+/// use borno::utils::deordinalize;
+///
+/// assert_eq!(deordinalize("1st"), "1");
+/// assert_eq!(deordinalize("2nd"), "2");
+/// assert_eq!(deordinalize("3rd"), "3");
+/// assert_eq!(deordinalize("4th"), "4");
+/// assert_eq!(deordinalize("102nd"), "102");
+/// assert_eq!(deordinalize("south"), "south");
+/// assert_eq!(deordinalize("3.14th"), "3.14th");
+/// ```
+#[must_use]
+pub fn deordinalize(input: &str) -> &str {
+    if input.contains('.') {
+        return input;
+    }
+
+    const SUFFIXES: [&str; 4] = ["st", "nd", "rd", "th"];
+    for suffix in SUFFIXES {
+        if let Some(prefix) = input.strip_suffix(suffix) {
+            if prefix
+                .bytes()
+                .last()
+                .is_some_and(|byte| byte.is_ascii_digit())
+            {
+                return prefix;
+            }
+        }
+    }
+
+    input
 }
 
 /// Options for formatting arrays of strings into grammatical sentences.
@@ -131,6 +192,32 @@ mod tests {
         assert_eq!(ordinal(24), "24th");
         assert_eq!(ordinal(101), "101st");
         assert_eq!(ordinal(-1), "-1st");
+
+        assert_eq!(ordinal_suffix(1), "st");
+        assert_eq!(ordinal_suffix(2), "nd");
+        assert_eq!(ordinal_suffix(3), "rd");
+        assert_eq!(ordinal_suffix(4), "th");
+        assert_eq!(ordinal_suffix(11), "th");
+        assert_eq!(ordinal_suffix(21), "st");
+    }
+
+    #[test]
+    fn test_deordinalize() {
+        assert_eq!(deordinalize("1st"), "1");
+        assert_eq!(deordinalize("2nd"), "2");
+        assert_eq!(deordinalize("3rd"), "3");
+        assert_eq!(deordinalize("4th"), "4");
+        assert_eq!(deordinalize("12000th"), "12000");
+        assert_eq!(deordinalize("-1st"), "-1");
+        assert_eq!(deordinalize("south"), "south");
+        assert_eq!(deordinalize("band"), "band");
+        assert_eq!(deordinalize("hard"), "hard");
+        assert_eq!(deordinalize("nest"), "nest");
+        assert_eq!(deordinalize("ststst"), "ststst");
+        assert_eq!(deordinalize("1stst"), "1stst");
+        assert_eq!(deordinalize("0.1"), "0.1");
+        assert_eq!(deordinalize("3.14th"), "3.14th");
+        assert_eq!(deordinalize(""), "");
     }
 
     #[test]

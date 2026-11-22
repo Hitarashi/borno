@@ -206,3 +206,111 @@ fn test_interpolate_utilities() {
         "Deploying prod to cloud"
     );
 }
+
+#[test]
+fn test_bytes_utilities() {
+    assert_eq!(parse_bytes("1024").unwrap(), 1024);
+    assert_eq!(parse_bytes("1KB").unwrap(), 1024);
+    assert_eq!(parse_bytes("10MB").unwrap(), 10_485_760);
+    assert_eq!(parse_bytes("1.5 GB").unwrap(), 1_610_612_736);
+
+    assert_eq!("10MB".parse_bytes().unwrap(), 10_485_760);
+
+    assert_eq!(format_bytes(0), "0 B");
+    assert_eq!(format_bytes(1024), "1 KB");
+    assert_eq!(format_bytes(1_572_864), "1.5 MB");
+
+    let opts = BytesOptions::new()
+        .with_decimal_places(1)
+        .with_fixed_decimals(true);
+    assert_eq!(format_bytes_with_options(1024, &opts), "1.0 KB");
+}
+
+#[test]
+fn test_duration_utilities() {
+    use std::time::Duration;
+
+    assert_eq!(parse_duration("500ms").unwrap(), Duration::from_millis(500));
+    assert_eq!(parse_duration("10s").unwrap(), Duration::from_secs(10));
+    assert_eq!(parse_duration("15m").unwrap(), Duration::from_secs(900));
+    assert_eq!(parse_duration("2h").unwrap(), Duration::from_secs(7200));
+    assert_eq!(parse_duration("1d").unwrap(), Duration::from_secs(86400));
+    assert_eq!(parse_duration("1w").unwrap(), Duration::from_secs(604800));
+
+    assert_eq!("15m".parse_duration().unwrap(), Duration::from_secs(900));
+
+    assert_eq!(format_duration(Duration::ZERO), "0s");
+    assert_eq!(format_duration(Duration::from_secs(65)), "1m 5s");
+    assert_eq!(format_duration(Duration::from_secs(3661)), "1h 1m 1s");
+
+    assert_eq!(format_duration_verbose(Duration::from_secs(1)), "1 second");
+    assert_eq!(format_duration_verbose(Duration::from_secs(2)), "2 seconds");
+    assert_eq!(
+        format_duration_verbose(Duration::from_secs(3661)),
+        "1 hour, 1 minute, 1 second"
+    );
+}
+
+#[test]
+fn test_slice_chop_and_inspection() {
+    assert_eq!(chop_start("https://example.com", "https://"), "example.com");
+    assert_eq!(chop_start("example.com", "https://"), "example.com");
+    assert_eq!(chop_end("filename.tar.gz", ".gz"), "filename.tar");
+    assert_eq!(chop_end("filename.tar", ".gz"), "filename.tar");
+
+    assert_eq!("https://example.com".chop_start("https://"), "example.com");
+    assert_eq!("filename.tar.gz".chop_end(".gz"), "filename.tar");
+
+    assert!(contains_all("the quick brown fox", &["quick", "fox"]));
+    assert!(!contains_all("the quick brown fox", &["quick", "cat"]));
+    assert!("the quick brown fox".contains_all(&["quick", "fox"]));
+
+    assert!(contains_any("the quick brown fox", &["cat", "fox"]));
+    assert!(!contains_any("the quick brown fox", &["cat", "dog"]));
+    assert!("the quick brown fox".contains_any(&["cat", "fox"]));
+
+    assert!(is_empty_or_whitespace("   \n\t  "));
+    assert!(!is_empty_or_whitespace("  hello  "));
+    assert!("   \n\t  ".is_empty_or_whitespace());
+}
+
+#[test]
+fn test_format_deordinalize_and_suffix() {
+    assert_eq!(ordinal_suffix(1), "st");
+    assert_eq!(ordinal_suffix(2), "nd");
+    assert_eq!(ordinal_suffix(3), "rd");
+    assert_eq!(ordinal_suffix(4), "th");
+    assert_eq!(ordinal_suffix(11), "th");
+    assert_eq!(ordinal_suffix(21), "st");
+
+    assert_eq!(deordinalize("1st"), "1");
+    assert_eq!(deordinalize("2nd"), "2");
+    assert_eq!(deordinalize("3rd"), "3");
+    assert_eq!(deordinalize("4th"), "4");
+    assert_eq!(deordinalize("21st"), "21");
+    assert_eq!(deordinalize("102nd"), "102");
+    assert_eq!(deordinalize("south"), "south");
+    assert_eq!(deordinalize("3.14th"), "3.14th");
+
+    assert_eq!("21st".deordinalize(), "21");
+    assert_eq!("south".deordinalize(), "south");
+}
+
+#[test]
+fn test_pad_surround_and_quotes() {
+    assert_eq!(ensure_wrap("path", "/", "/"), "/path/");
+    assert_eq!(ensure_wrap("/path", "/", "/"), "/path/");
+    assert_eq!(ensure_wrap("/path/", "/", "/"), "/path/");
+
+    assert_eq!("path".ensure_wrap("/", "/"), "/path/");
+
+    assert_eq!(surround("content", "<", ">"), "<content>");
+    assert_eq!("content".surround("<", ">"), "<content>");
+
+    assert_eq!(unwrap_quotes("\"quoted\""), "quoted");
+    assert_eq!(unwrap_quotes("'single'"), "single");
+    assert_eq!(unwrap_quotes("\"mismatch'"), "\"mismatch'");
+    assert_eq!(unwrap_quotes("unquoted"), "unquoted");
+
+    assert_eq!("\"quoted\"".unwrap_quotes(), "quoted");
+}

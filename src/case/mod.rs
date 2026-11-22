@@ -39,9 +39,47 @@ pub use snake::{is_screaming_snake_case, to_screaming_snake_case};
 #[cfg(feature = "case-snake")]
 pub use snake::{is_snake_case, to_snake_case};
 #[cfg(feature = "case-title")]
-pub use title::{is_title_case, to_title_case};
+pub use title::{is_title_case, is_title_case_apa, to_title_case, to_title_case_apa};
 #[cfg(feature = "case-train")]
 pub use train::{is_train_case, to_train_case};
+
+/// Inverts the case of each character in a string slice.
+///
+/// Uppercase characters become lowercase, and lowercase characters become uppercase.
+/// Operates safely across Unicode boundaries.
+///
+/// # Examples
+/// ```
+/// use borno::case::swap_case;
+///
+/// assert_eq!(swap_case("Hello World!"), "hELLO wORLD!");
+/// assert_eq!(swap_case("Rust 2024"), "rUST 2024");
+/// ```
+#[must_use]
+#[cfg(any(
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-camel",
+    feature = "case-pascal",
+    feature = "case-kebab",
+    feature = "case-train",
+    feature = "case-title",
+    feature = "case-sentence",
+    feature = "case-dot"
+))]
+pub fn swap_case(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    for character in input.chars() {
+        if character.is_uppercase() {
+            append_cased(&mut result, character, false);
+        } else if character.is_lowercase() {
+            append_cased(&mut result, character, true);
+        } else {
+            result.push(character);
+        }
+    }
+    result
+}
 
 /// Checks if a character acts as a word separator.
 #[inline]
@@ -249,7 +287,7 @@ pub(crate) fn is_camel_or_pascal(input: &str, require_uppercase_first: bool) -> 
     feature = "case-title",
     feature = "case-train"
 ))]
-fn append_cased(buffer: &mut String, character: char, uppercase: bool) {
+pub(crate) fn append_cased(buffer: &mut String, character: char, uppercase: bool) {
     if uppercase {
         for upper_char in character.to_uppercase() {
             buffer.push(upper_char);

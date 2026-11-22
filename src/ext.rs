@@ -2,6 +2,18 @@
 
 use std::borrow::Cow;
 
+#[cfg(any(
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-camel",
+    feature = "case-pascal",
+    feature = "case-kebab",
+    feature = "case-train",
+    feature = "case-title",
+    feature = "case-sentence",
+    feature = "case-dot"
+))]
+use crate::case::swap_case;
 #[cfg(feature = "conventions")]
 use crate::case::{
     classify, deconstantize, demodulize, foreign_key, headline, humanize, is_foreign_key, tableize,
@@ -21,7 +33,7 @@ use crate::case::{is_sentence_case, to_sentence_case};
 #[cfg(feature = "case-snake")]
 use crate::case::{is_snake_case, to_snake_case};
 #[cfg(feature = "case-title")]
-use crate::case::{is_title_case, to_title_case};
+use crate::case::{is_title_case, is_title_case_apa, to_title_case, to_title_case_apa};
 #[cfg(feature = "case-train")]
 use crate::case::{is_train_case, to_train_case};
 #[cfg(feature = "grammar")]
@@ -31,20 +43,29 @@ use crate::grammar::{
 };
 #[cfg(feature = "slug")]
 use crate::slug::{SlugOptions, slugify, slugify_with_options};
+#[cfg(feature = "util-format")]
+use crate::utils::deordinalize;
 #[cfg(feature = "util-interpolate")]
 use crate::utils::interpolate;
 #[cfg(feature = "util-mask")]
 use crate::utils::mask;
 #[cfg(feature = "util-truncate")]
 use crate::utils::{ExcerptOptions, TruncateOptions, excerpt, truncate, words};
+#[cfg(feature = "util-bytes")]
+use crate::utils::{ParseBytesError, parse_bytes};
+#[cfg(feature = "util-duration")]
+use crate::utils::{ParseDurationError, parse_duration};
 #[cfg(feature = "util-text")]
 use crate::utils::{
     WordWrapOptions, html_escape, html_unescape, word_wrap, word_wrap_with_options,
 };
 #[cfg(feature = "util-slice")]
-use crate::utils::{after, after_last, before, before_last, between, between_first};
+use crate::utils::{
+    after, after_last, before, before_last, between, between_first, chop_end, chop_start,
+    contains_all, contains_any, is_empty_or_whitespace,
+};
 #[cfg(feature = "util-pad")]
-use crate::utils::{finish, start, unwrap, wrap};
+use crate::utils::{ensure_wrap, finish, start, surround, unwrap, unwrap_quotes, wrap};
 #[cfg(feature = "util-normalize")]
 use crate::utils::{normalize_slashes, squish};
 
@@ -77,6 +98,10 @@ pub trait StrExt {
     /// Converts to `Title Case`.
     #[cfg(feature = "case-title")]
     fn to_title_case(&self) -> Cow<'_, str>;
+
+    /// Converts to `Title Case` using APA / Chicago grammar rules.
+    #[cfg(feature = "case-title")]
+    fn to_title_case_apa(&self) -> Cow<'_, str>;
 
     /// Converts to `Sentence case`.
     #[cfg(feature = "case-sentence")]
@@ -145,6 +170,24 @@ pub trait StrExt {
     /// Checks if the slice is valid `Title Case`.
     #[cfg(feature = "case-title")]
     fn is_title_case(&self) -> bool;
+
+    /// Checks if the slice is valid `Title Case` according to APA grammar rules.
+    #[cfg(feature = "case-title")]
+    fn is_title_case_apa(&self) -> bool;
+
+    /// Inverts character cases throughout the string slice.
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot"
+    ))]
+    fn swap_case(&self) -> String;
 
     /// Checks if the slice is valid `Sentence case`.
     #[cfg(feature = "case-sentence")]
@@ -218,9 +261,21 @@ pub trait StrExt {
     #[cfg(feature = "util-pad")]
     fn wrap(&self, before: &str, after: &str) -> String;
 
+    /// Ensures the string begins with a prefix and terminates with a suffix without duplicating them.
+    #[cfg(feature = "util-pad")]
+    fn ensure_wrap(&self, before: &str, after: &str) -> String;
+
+    /// Semantic alias for [`wrap`].
+    #[cfg(feature = "util-pad")]
+    fn surround(&self, before: &str, after: &str) -> String;
+
     /// Removes the enclosing prefix and suffix if present.
     #[cfg(feature = "util-pad")]
     fn unwrap(&self, before: &str, after: &str) -> &str;
+
+    /// Strips matching enclosing quotes (either single or double) from the string.
+    #[cfg(feature = "util-pad")]
+    fn unwrap_quotes(&self) -> &str;
 
     /// Extracts the substring before the first delimiter occurrence.
     #[cfg(feature = "util-slice")]
@@ -245,6 +300,38 @@ pub trait StrExt {
     /// Extracts the substring between the first occurrences of delimiters.
     #[cfg(feature = "util-slice")]
     fn between_first(&self, start_delim: &str, end_delim: &str) -> Cow<'_, str>;
+
+    /// Removes a leading prefix from the string slice if present.
+    #[cfg(feature = "util-slice")]
+    fn chop_start(&self, needle: &str) -> &str;
+
+    /// Removes a trailing suffix from the string slice if present.
+    #[cfg(feature = "util-slice")]
+    fn chop_end(&self, needle: &str) -> &str;
+
+    /// Checks if the string slice contains all specified needles.
+    #[cfg(feature = "util-slice")]
+    fn contains_all(&self, needles: &[&str]) -> bool;
+
+    /// Checks if the string slice contains any of the specified needles.
+    #[cfg(feature = "util-slice")]
+    fn contains_any(&self, needles: &[&str]) -> bool;
+
+    /// Checks if the string slice is empty or contains only whitespace.
+    #[cfg(feature = "util-slice")]
+    fn is_empty_or_whitespace(&self) -> bool;
+
+    /// Strips an English ordinal suffix from a number string.
+    #[cfg(feature = "util-format")]
+    fn deordinalize(&self) -> &str;
+
+    /// Parses the string slice as a human-readable byte expression.
+    #[cfg(feature = "util-bytes")]
+    fn parse_bytes(&self) -> Result<u64, ParseBytesError>;
+
+    /// Parses the string slice as a human-readable duration expression.
+    #[cfg(feature = "util-duration")]
+    fn parse_duration(&self) -> Result<std::time::Duration, ParseDurationError>;
 
     /// Collapses consecutive whitespace and trims the ends.
     #[cfg(feature = "util-normalize")]
@@ -309,6 +396,11 @@ impl StrExt for str {
     #[cfg(feature = "case-title")]
     fn to_title_case(&self) -> Cow<'_, str> {
         to_title_case(self)
+    }
+
+    #[cfg(feature = "case-title")]
+    fn to_title_case_apa(&self) -> Cow<'_, str> {
+        to_title_case_apa(self)
     }
 
     #[cfg(feature = "case-sentence")]
@@ -394,6 +486,26 @@ impl StrExt for str {
     #[cfg(feature = "case-title")]
     fn is_title_case(&self) -> bool {
         is_title_case(self)
+    }
+
+    #[cfg(feature = "case-title")]
+    fn is_title_case_apa(&self) -> bool {
+        is_title_case_apa(self)
+    }
+
+    #[cfg(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot"
+    ))]
+    fn swap_case(&self) -> String {
+        swap_case(self)
     }
 
     #[cfg(feature = "case-sentence")]
@@ -487,8 +599,23 @@ impl StrExt for str {
     }
 
     #[cfg(feature = "util-pad")]
+    fn ensure_wrap(&self, before_val: &str, after_val: &str) -> String {
+        ensure_wrap(self, before_val, after_val)
+    }
+
+    #[cfg(feature = "util-pad")]
+    fn surround(&self, before_val: &str, after_val: &str) -> String {
+        surround(self, before_val, after_val)
+    }
+
+    #[cfg(feature = "util-pad")]
     fn unwrap(&self, before_val: &str, after_val: &str) -> &str {
         unwrap(self, before_val, after_val)
+    }
+
+    #[cfg(feature = "util-pad")]
+    fn unwrap_quotes(&self) -> &str {
+        unwrap_quotes(self)
     }
 
     #[cfg(feature = "util-slice")]
@@ -519,6 +646,46 @@ impl StrExt for str {
     #[cfg(feature = "util-slice")]
     fn between_first(&self, start_delim: &str, end_delim: &str) -> Cow<'_, str> {
         between_first(self, start_delim, end_delim)
+    }
+
+    #[cfg(feature = "util-slice")]
+    fn chop_start(&self, needle: &str) -> &str {
+        chop_start(self, needle)
+    }
+
+    #[cfg(feature = "util-slice")]
+    fn chop_end(&self, needle: &str) -> &str {
+        chop_end(self, needle)
+    }
+
+    #[cfg(feature = "util-slice")]
+    fn contains_all(&self, needles: &[&str]) -> bool {
+        contains_all(self, needles)
+    }
+
+    #[cfg(feature = "util-slice")]
+    fn contains_any(&self, needles: &[&str]) -> bool {
+        contains_any(self, needles)
+    }
+
+    #[cfg(feature = "util-slice")]
+    fn is_empty_or_whitespace(&self) -> bool {
+        is_empty_or_whitespace(self)
+    }
+
+    #[cfg(feature = "util-format")]
+    fn deordinalize(&self) -> &str {
+        deordinalize(self)
+    }
+
+    #[cfg(feature = "util-bytes")]
+    fn parse_bytes(&self) -> Result<u64, ParseBytesError> {
+        parse_bytes(self)
+    }
+
+    #[cfg(feature = "util-duration")]
+    fn parse_duration(&self) -> Result<std::time::Duration, ParseDurationError> {
+        parse_duration(self)
     }
 
     #[cfg(feature = "util-normalize")]
@@ -599,5 +766,25 @@ mod tests {
             "hello world"
         );
         assert!("user.name".is_dot_case());
+        assert_eq!(
+            "the old man and the sea".to_title_case_apa(),
+            "The Old Man and the Sea"
+        );
+        assert!("The Old Man and the Sea".is_title_case_apa());
+        assert_eq!("Hello World!".swap_case(), "hELLO wORLD!");
+        assert_eq!("https://example.com".chop_start("https://"), "example.com");
+        assert_eq!("filename.tar.gz".chop_end(".gz"), "filename.tar");
+        assert!("apple banana".contains_all(&["apple", "banana"]));
+        assert!("apple banana".contains_any(&["banana", "cherry"]));
+        assert!("   ".is_empty_or_whitespace());
+        assert_eq!("22nd".deordinalize(), "22");
+        assert_eq!("path".ensure_wrap("/", "/"), "/path/");
+        assert_eq!("tag".surround("<", ">"), "<tag>");
+        assert_eq!("\"hello\"".unwrap_quotes(), "hello");
+        assert_eq!("10MB".parse_bytes().unwrap(), 10_485_760);
+        assert_eq!(
+            "15m".parse_duration().unwrap(),
+            std::time::Duration::from_secs(900)
+        );
     }
 }

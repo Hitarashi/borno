@@ -1,5 +1,9 @@
 //! General string utilities.
 
+#[cfg(feature = "util-bytes")]
+pub mod bytes;
+#[cfg(feature = "util-duration")]
+pub mod duration;
 #[cfg(feature = "util-format")]
 pub mod format;
 #[cfg(feature = "util-interpolate")]
@@ -17,8 +21,17 @@ pub mod text;
 #[cfg(feature = "util-truncate")]
 pub mod truncate;
 
+#[cfg(feature = "util-bytes")]
+pub use bytes::{
+    BytesOptions, BytesStandard, BytesUnit, ParseBytesError, format_bytes,
+    format_bytes_with_options, parse_bytes,
+};
+#[cfg(feature = "util-duration")]
+pub use duration::{ParseDurationError, format_duration, format_duration_verbose, parse_duration};
 #[cfg(feature = "util-format")]
-pub use format::{SentenceOptions, ordinal, sentence, sentence_with_options};
+pub use format::{
+    SentenceOptions, deordinalize, ordinal, ordinal_suffix, sentence, sentence_with_options,
+};
 #[cfg(feature = "util-interpolate")]
 pub use interpolate::{interpolate, interpolate_pairs};
 #[cfg(feature = "util-mask")]
@@ -26,9 +39,14 @@ pub use mask::{mask, mask_email};
 #[cfg(feature = "util-normalize")]
 pub use normalize::{normalize_slashes, squish};
 #[cfg(feature = "util-pad")]
-pub use pad::{finish, pad_both, pad_end, pad_start, start, unwrap, wrap};
+pub use pad::{
+    ensure_wrap, finish, pad_both, pad_end, pad_start, start, surround, unwrap, unwrap_quotes, wrap,
+};
 #[cfg(feature = "util-slice")]
-pub use slice::{after, after_last, before, before_last, between, between_first};
+pub use slice::{
+    after, after_last, before, before_last, between, between_first, chop_end, chop_start,
+    contains_all, contains_any, is_empty_or_whitespace,
+};
 #[cfg(feature = "util-text")]
 pub use text::{
     Alignment, WordWrapOptions, html_escape, html_unescape, justify_columns, word_wrap,
