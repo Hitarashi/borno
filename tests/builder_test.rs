@@ -1,3 +1,5 @@
+#![cfg(all(feature = "builder", feature = "full"))]
+
 use borno::{StrBuilder, slug::SlugOptions, utils::TruncateOptions};
 
 #[test]

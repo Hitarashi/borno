@@ -1,3 +1,5 @@
+#![cfg(feature = "full")]
+
 #[cfg(feature = "regex")]
 use borno::grammar::{add_plural_rule, add_singular_rule};
 use borno::{

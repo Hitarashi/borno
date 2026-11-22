@@ -1,3 +1,5 @@
+#![cfg(all(feature = "grammar", feature = "ext"))]
+
 use borno::{StrExt, grammar::*};
 
 #[test]

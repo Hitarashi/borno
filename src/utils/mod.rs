@@ -1,22 +1,38 @@
 //! General string utilities.
 
+#[cfg(feature = "util-format")]
 pub mod format;
+#[cfg(feature = "util-interpolate")]
 pub mod interpolate;
+#[cfg(feature = "util-mask")]
 pub mod mask;
+#[cfg(feature = "util-normalize")]
 pub mod normalize;
+#[cfg(feature = "util-pad")]
 pub mod pad;
+#[cfg(feature = "util-slice")]
 pub mod slice;
+#[cfg(feature = "util-text")]
 pub mod text;
+#[cfg(feature = "util-truncate")]
 pub mod truncate;
 
+#[cfg(feature = "util-format")]
 pub use format::{SentenceOptions, ordinal, sentence, sentence_with_options};
+#[cfg(feature = "util-interpolate")]
 pub use interpolate::{interpolate, interpolate_pairs};
+#[cfg(feature = "util-mask")]
 pub use mask::{mask, mask_email};
+#[cfg(feature = "util-normalize")]
 pub use normalize::{normalize_slashes, squish};
+#[cfg(feature = "util-pad")]
 pub use pad::{finish, pad_both, pad_end, pad_start, start, unwrap, wrap};
+#[cfg(feature = "util-slice")]
 pub use slice::{after, after_last, before, before_last, between, between_first};
+#[cfg(feature = "util-text")]
 pub use text::{
     Alignment, WordWrapOptions, html_escape, html_unescape, justify_columns, word_wrap,
     word_wrap_with_options,
 };
+#[cfg(feature = "util-truncate")]
 pub use truncate::{ExcerptOptions, TruncateOptions, excerpt, truncate, words};

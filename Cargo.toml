@@ -11,8 +11,77 @@ keywords = ["inflection", "casing", "pluralize", "slugify", "string-manipulation
 categories = ["text-processing", "development-tools"]
 
 [features]
-default = ["regex"]
-regex = ["dep:regex"]
+default = ["full"]
+full = [
+    "casing",
+    "conventions",
+    "grammar",
+    "slug",
+    "utils",
+    "builder",
+    "ext",
+    "regex",
+]
+
+# Fine-grained Casing Features
+case-snake = []
+case-screaming-snake = []
+case-camel = []
+case-pascal = []
+case-kebab = []
+case-train = []
+case-title = []
+case-sentence = []
+case-dot = []
+
+casing = [
+    "case-snake",
+    "case-screaming-snake",
+    "case-camel",
+    "case-pascal",
+    "case-kebab",
+    "case-train",
+    "case-title",
+    "case-sentence",
+    "case-dot",
+]
+
+# Identifier and Database Conventions
+conventions = ["case-snake", "case-pascal", "grammar"]
+
+# English Grammatical Inflections
+grammar = []
+regex = ["dep:regex", "grammar"]
+
+# URL Slugification
+slug = []
+
+# Fine-grained String Utilities
+util-slice = []
+util-normalize = []
+util-interpolate = []
+util-text = ["util-pad"]
+util-truncate = []
+util-mask = []
+util-pad = []
+util-format = []
+
+utils = [
+    "util-slice",
+    "util-normalize",
+    "util-interpolate",
+    "util-text",
+    "util-truncate",
+    "util-mask",
+    "util-pad",
+    "util-format",
+]
+
+# Ergonomics
+builder = []
+ext = []
+
+# Optional Serialization
 serde = ["dep:serde"]
 
 [dependencies]

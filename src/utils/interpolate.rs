@@ -68,14 +68,8 @@ where
         let (byte_offset, current_char) = chars[index];
 
         // Case 1: Escaped double brace \{{ or single brace \{
-        if current_char == '\\' && index + 1 < total_chars && chars[index + 1].1 == '{' {
-            if index + 2 < total_chars && chars[index + 2].1 == '{' {
-                result.push_str("{{");
-                index += 3;
-            } else {
-                result.push('{');
-                index += 2;
-            }
+        if let Some(advance) = try_unescape_brace(&chars, index, &mut result) {
+            index += advance;
             continue;
         }
 
@@ -148,14 +142,8 @@ fn unescape_braces(template: &str) -> String {
 
     while index < total_chars {
         let (_, current_char) = chars[index];
-        if current_char == '\\' && index + 1 < total_chars && chars[index + 1].1 == '{' {
-            if index + 2 < total_chars && chars[index + 2].1 == '{' {
-                result.push_str("{{");
-                index += 3;
-            } else {
-                result.push('{');
-                index += 2;
-            }
+        if let Some(advance) = try_unescape_brace(&chars, index, &mut result) {
+            index += advance;
             continue;
         }
         result.push(current_char);
@@ -163,6 +151,21 @@ fn unescape_braces(template: &str) -> String {
     }
 
     result
+}
+
+#[inline]
+fn try_unescape_brace(chars: &[(usize, char)], index: usize, result: &mut String) -> Option<usize> {
+    if chars[index].1 == '\\' && index + 1 < chars.len() && chars[index + 1].1 == '{' {
+        if index + 2 < chars.len() && chars[index + 2].1 == '{' {
+            result.push_str("{{");
+            Some(3)
+        } else {
+            result.push('{');
+            Some(2)
+        }
+    } else {
+        None
+    }
 }
 
 #[inline]

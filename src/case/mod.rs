@@ -1,30 +1,63 @@
 //! Casing transformation engine, predicates, and framework naming conventions.
 
+#[cfg(feature = "case-camel")]
 pub mod camel;
+#[cfg(feature = "conventions")]
 pub mod conventions;
+#[cfg(feature = "case-dot")]
 pub mod dot;
+#[cfg(feature = "case-kebab")]
 pub mod kebab;
+#[cfg(feature = "case-pascal")]
 pub mod pascal;
+#[cfg(feature = "case-sentence")]
 pub mod sentence;
+#[cfg(any(feature = "case-snake", feature = "case-screaming-snake"))]
 pub mod snake;
+#[cfg(feature = "case-title")]
 pub mod title;
+#[cfg(feature = "case-train")]
 pub mod train;
 
+#[cfg(feature = "case-camel")]
 pub use camel::{is_camel_case, to_camel_case};
+#[cfg(feature = "conventions")]
 pub use conventions::{
     classify, deconstantize, demodulize, foreign_key, foreign_key_with_suffix, headline, humanize,
     is_foreign_key, is_foreign_key_with_suffix, tableize,
 };
+#[cfg(feature = "case-dot")]
 pub use dot::{is_dot_case, to_dot_case};
+#[cfg(feature = "case-kebab")]
 pub use kebab::{is_kebab_case, to_kebab_case};
+#[cfg(feature = "case-pascal")]
 pub use pascal::{is_pascal_case, to_pascal_case};
+#[cfg(feature = "case-sentence")]
 pub use sentence::{is_sentence_case, to_sentence_case};
-pub use snake::{is_screaming_snake_case, is_snake_case, to_screaming_snake_case, to_snake_case};
+#[cfg(feature = "case-screaming-snake")]
+pub use snake::{is_screaming_snake_case, to_screaming_snake_case};
+#[cfg(feature = "case-snake")]
+pub use snake::{is_snake_case, to_snake_case};
+#[cfg(feature = "case-title")]
 pub use title::{is_title_case, to_title_case};
+#[cfg(feature = "case-train")]
 pub use train::{is_train_case, to_train_case};
 
 /// Checks if a character acts as a word separator.
 #[inline]
+#[cfg(any(
+    feature = "case-camel",
+    feature = "case-dot",
+    feature = "case-kebab",
+    feature = "case-pascal",
+    feature = "case-sentence",
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-title",
+    feature = "case-train",
+    feature = "conventions",
+    feature = "grammar"
+))]
 pub(crate) fn is_separator(character: char) -> bool {
     character.is_whitespace()
         || character == '_'
@@ -37,6 +70,19 @@ pub(crate) fn is_separator(character: char) -> bool {
 
 /// Splits a string slice into word slices by detecting separators,
 /// camelCase transitions, and consecutive uppercase acronym boundaries.
+#[cfg(any(
+    feature = "case-camel",
+    feature = "case-dot",
+    feature = "case-kebab",
+    feature = "case-pascal",
+    feature = "case-sentence",
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-title",
+    feature = "case-train",
+    feature = "conventions",
+    feature = "grammar"
+))]
 pub(crate) fn split_words(input: &str) -> Vec<&str> {
     if input.is_empty() {
         return Vec::new();
@@ -62,20 +108,25 @@ pub(crate) fn split_words(input: &str) -> Vec<&str> {
                 word_start = Some(current_offset);
             }
             Some(start_offset) => {
-                let previous_char = character_indices[index - 1].1;
+                let (_, previous_char) = character_indices[index - 1];
 
-                // Transition 1: lowercase or digit to uppercase (e.g. "camelCase" -> boundary before 'C').
-                let lower_or_digit_to_upper = (previous_char.is_lowercase()
-                    || previous_char.is_numeric())
-                    && current_char.is_uppercase();
+                let is_camel_boundary = previous_char.is_lowercase() && current_char.is_uppercase();
 
-                // Transition 2: acronym end before a capitalized word (e.g. "HTTPResponse" -> boundary before 'R').
-                let acronym_to_capitalized = previous_char.is_uppercase()
+                let is_acronym_boundary = if previous_char.is_uppercase()
                     && current_char.is_uppercase()
                     && index + 1 < total_characters
-                    && character_indices[index + 1].1.is_lowercase();
+                {
+                    let (_, next_char) = character_indices[index + 1];
+                    next_char.is_lowercase()
+                } else {
+                    false
+                };
 
-                if lower_or_digit_to_upper || acronym_to_capitalized {
+                let is_number_boundary = (previous_char.is_alphabetic()
+                    && current_char.is_ascii_digit())
+                    || (previous_char.is_ascii_digit() && current_char.is_alphabetic());
+
+                if is_camel_boundary || is_acronym_boundary || is_number_boundary {
                     words.push(&input[start_offset..current_offset]);
                     word_start = Some(current_offset);
                 }
@@ -92,6 +143,12 @@ pub(crate) fn split_words(input: &str) -> Vec<&str> {
 
 /// Validates whether a string slice matches single-separator delimited ASCII casing.
 #[inline]
+#[cfg(any(
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-kebab",
+    feature = "case-dot"
+))]
 pub(crate) fn is_delimited_ascii(input: &str, separator: u8, require_uppercase: bool) -> bool {
     if input.is_empty() {
         return false;
@@ -125,6 +182,7 @@ pub(crate) fn is_delimited_ascii(input: &str, separator: u8, require_uppercase: 
 
 /// Validates whether a string slice matches delimited title casing.
 #[inline]
+#[cfg(any(feature = "case-title", feature = "case-train"))]
 pub(crate) fn is_delimited_title(input: &str, separator: char) -> bool {
     if input.is_empty() || input.starts_with(separator) || input.ends_with(separator) {
         return false;
@@ -151,6 +209,7 @@ pub(crate) fn is_delimited_title(input: &str, separator: char) -> bool {
 
 /// Validates whether a string slice conforms to camelCase or PascalCase.
 #[inline]
+#[cfg(any(feature = "case-camel", feature = "case-pascal"))]
 pub(crate) fn is_camel_or_pascal(input: &str, require_uppercase_first: bool) -> bool {
     let mut characters = input.chars();
     let Some(first_char) = characters.next() else {
@@ -180,6 +239,16 @@ pub(crate) fn is_camel_or_pascal(input: &str, require_uppercase_first: bool) -> 
 }
 
 #[inline]
+#[cfg(any(
+    feature = "case-camel",
+    feature = "case-pascal",
+    feature = "case-dot",
+    feature = "case-kebab",
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-title",
+    feature = "case-train"
+))]
 fn append_cased(buffer: &mut String, character: char, uppercase: bool) {
     if uppercase {
         for upper_char in character.to_uppercase() {
@@ -193,6 +262,12 @@ fn append_cased(buffer: &mut String, character: char, uppercase: bool) {
 }
 
 /// Joins word slices with a single separator character in either all-lowercase or all-uppercase.
+#[cfg(any(
+    feature = "case-dot",
+    feature = "case-kebab",
+    feature = "case-snake",
+    feature = "case-screaming-snake"
+))]
 pub(crate) fn join_words_cased(
     words: &[&str],
     separator: char,
@@ -213,6 +288,7 @@ pub(crate) fn join_words_cased(
 }
 
 /// Joins word slices where each word is capitalized, separated by a delimiter.
+#[cfg(any(feature = "case-title", feature = "case-train"))]
 pub(crate) fn join_words_title(words: &[&str], separator: char, original_len: usize) -> String {
     let total_separator_bytes = words.len().saturating_sub(1) * separator.len_utf8();
     let mut result = String::with_capacity(original_len + total_separator_bytes);
@@ -228,6 +304,7 @@ pub(crate) fn join_words_title(words: &[&str], separator: char, original_len: us
 }
 
 /// Joins word slices into camelCase or PascalCase.
+#[cfg(any(feature = "case-camel", feature = "case-pascal"))]
 pub(crate) fn join_words_camel_or_pascal(
     words: &[&str],
     capitalize_first: bool,

@@ -1,3 +1,5 @@
+#![cfg(all(feature = "casing", feature = "conventions", feature = "ext"))]
+
 use std::borrow::Cow;
 
 use borno::{StrExt, case::*};

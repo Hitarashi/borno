@@ -1,3 +1,5 @@
+#![cfg(all(feature = "slug", feature = "ext"))]
+
 use borno::{StrExt, slug::*};
 
 #[test]

@@ -1,4 +1,4 @@
-# Borno
+# Borno (বর্ণ)
 
 Fast, allocation-conscious English grammatical inflections, casing transformations, URL slugification, and string utilities for Rust.
 
@@ -34,7 +34,7 @@ borno = "0.1.0"
 ### Grammatical Inflection
 
 ```rust
-use borno::{pluralize, pluralize_with_count, singularize};
+use borno::{pluralize, pluralize_with_count, pluralize_with_count_inclusive, singularize};
 
 assert_eq!(pluralize("user"), "users");
 assert_eq!(pluralize("person"), "people");
@@ -43,8 +43,10 @@ assert_eq!(singularize("cacti"), "cactus");
 assert_eq!(singularize("boxes"), "box");
 
 // Count-aware pluralization
-assert_eq!(pluralize_with_count("file", 1), "1 file");
-assert_eq!(pluralize_with_count("file", 5), "5 files");
+assert_eq!(pluralize_with_count("file", 1), "file");
+assert_eq!(pluralize_with_count("file", 5), "files");
+assert_eq!(pluralize_with_count_inclusive("file", 1), "1 file");
+assert_eq!(pluralize_with_count_inclusive("file", 5), "5 files");
 ```
 
 ### Casing Transformations
@@ -165,8 +167,57 @@ assert_eq!(result, "HelloWorlds");
 
 ## Feature Flags
 
-- `regex` *(default)*: Enables regular expression matching for custom dynamic inflection rules.
-- `serde`: Derives `Serialize` and `Deserialize` for option types (`SlugOptions`, `TruncateOptions`, etc.).
+`borno` provides fine-grained feature flags so callers can opt in only to what they need, minimizing compile times and binary size. By default, the `full` feature bundle is enabled.
+
+### Composite Bundles
+
+| Bundle | Description |
+|---|---|
+| `full` *(default)* | Enables all computational casing, conventions, grammar, slug, utility modules, fluent builder, extension trait, and regex support. |
+| `casing` | Enables all casing transformations (`case-*`). |
+| `utils` | Enables all string utilities (`util-*`). |
+| `default` | Alias for `["full"]`. |
+
+### Fine-Grained Features
+
+| Feature | Capabilities |
+|---|---|
+| `case-snake` | `to_snake_case`, `to_screaming_snake_case`, `is_snake_case`, `is_screaming_snake_case`. |
+| `case-camel` | `to_camel_case`, `is_camel_case`. |
+| `case-pascal` | `to_pascal_case`, `is_pascal_case`. |
+| `case-kebab` | `to_kebab_case`, `is_kebab_case`. |
+| `case-train` | `to_train_case`, `is_train_case`. |
+| `case-title` | `to_title_case`, `is_title_case`. |
+| `case-sentence` | `to_sentence_case`, `is_sentence_case`. |
+| `case-dot` | `to_dot_case`, `is_dot_case`. |
+| `conventions` | Database and identifier conventions (`tableize`, `classify`, `foreign_key`, `headline`, `humanize`, `demodulize`, `deconstantize`). |
+| `grammar` | English grammatical inflection (`pluralize`, `singularize`, `pluralize_with_count`, `is_plural`, `is_singular`, `Inflector`). |
+| `regex` | Enables dynamic regex rule registration in `Inflector` (`add_plural_rule`, `add_singular_rule`). |
+| `slug` | URL slugification (`slugify`, `slugify_with_options`, `SlugOptions`). |
+| `util-slice` | Delimiter-aware slicing (`before`, `after`, `between`, etc.). |
+| `util-normalize` | Whitespace squishing (`squish`) and file path normalization (`normalize_slashes`). |
+| `util-interpolate` | String template placeholder interpolation (`interpolate`, `interpolate_pairs`). |
+| `util-text` | Word wrapping (`word_wrap`), HTML escaping (`html_escape`), and tabular column justification (`justify_columns`). |
+| `util-truncate` | Contextual excerpting (`excerpt`), character truncation (`truncate`), and word-count limiting (`words`). |
+| `util-mask` | Character masking (`mask`) and email masking (`mask_email`). |
+| `util-pad` | Padding (`pad_start`, `pad_end`, `pad_both`) and boundary guards (`start`, `finish`, `wrap`, `unwrap`). |
+| `util-format` | Ordinals (`ordinal`) and Oxford comma list formatting (`sentence`). |
+| `builder` | Fluent multi-step string transformation pipeline (`StrBuilder`), conditionally exposing methods matching active features. |
+| `ext` | Extension trait on `&str` (`StrExt`), conditionally exposing methods matching active features. |
+| `serde` | Implements `Serialize` and `Deserialize` on option structs (`SlugOptions`, `SentenceOptions`, `TruncateOptions`, `ExcerptOptions`, etc.). |
+
+### Opting In To Specific Features
+
+To minimize dependencies and compilation time, disable default features and choose only what your project needs:
+
+```toml
+[dependencies]
+# Only use snake_case and kebab-case conversions
+borno = { version = "0.1.0", default-features = false, features = ["case-snake", "case-kebab"] }
+
+# Or only use grammar inflections with the fluent extension trait
+borno = { version = "0.1.0", default-features = false, features = ["grammar", "ext"] }
+```
 
 ## License
 

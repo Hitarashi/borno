@@ -54,5 +54,19 @@ transformations, URL slugification, and string utilities.
 
 ## Feature Flags
 
-- `regex` (default): Enables dynamic regular expression patterns in the custom rule engine.
-- `serde`: Enables `Serialize` and `Deserialize` on configuration and option structs.
+`borno` provides fine-grained, zero-cost feature flags:
+
+- **Composite Bundles**:
+  - `full` (default): Enables all features (`casing`, `conventions`, `grammar`, `regex`, `slug`, `utils`, `builder`, `ext`).
+  - `casing`: Enables all casing conversions (`case-snake`, `case-screaming-snake`, `case-camel`, `case-pascal`, `case-kebab`, `case-train`, `case-title`, `case-sentence`, `case-dot`).
+  - `utils`: Enables all string utilities (`util-slice`, `util-normalize`, `util-interpolate`, `util-text`, `util-truncate`, `util-mask`, `util-pad`, `util-format`).
+- **Fine-Grained Features**:
+  - `case-*`: Individual casing modules (`case-snake`, `case-camel`, etc.).
+  - `conventions`: Database and identifier naming conventions (`tableize`, `classify`, `foreign_key`, `headline`, `humanize`, `demodulize`, `deconstantize`).
+  - `grammar`: Regular/irregular inflection tables, uncountables, and casing preservation.
+  - `regex`: Regular expression support for dynamic rules in `Inflector`.
+  - `slug`: URL slugification with Latin diacritics transliteration.
+  - `util-*`: Granular string utilities (`util-slice`, `util-normalize`, `util-interpolate`, `util-text`, `util-truncate`, `util-mask`, `util-pad`, `util-format`).
+  - `builder`: Adaptive `StrBuilder` fluent pipeline.
+  - `ext`: Adaptive `StrExt` extension trait for `&str`.
+  - `serde`: Serialization and deserialization for option and configuration structs.

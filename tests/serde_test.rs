@@ -1,4 +1,4 @@
-#![cfg(feature = "serde")]
+#![cfg(all(feature = "serde", feature = "full"))]
 
 use borno::{
     Alignment, ExcerptOptions, SentenceOptions, SlugOptions, TruncateOptions, WordWrapOptions,

@@ -1,3 +1,5 @@
+#![cfg(all(feature = "utils", feature = "ext"))]
+
 use borno::{StrExt, utils::*};
 
 #[test]

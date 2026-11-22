@@ -18,44 +18,126 @@
 //!   column justification (`justify_columns`), and parameter interpolation (`interpolate`).
 //! - **Ergonomic Tri-Surface API**: Direct top-level functions, fluent [`StrBuilder`] pipeline chaining, and the [`StrExt`] extension trait.
 
+#[cfg(feature = "builder")]
 pub mod builder;
+#[cfg(any(
+    feature = "case-snake",
+    feature = "case-screaming-snake",
+    feature = "case-camel",
+    feature = "case-pascal",
+    feature = "case-kebab",
+    feature = "case-train",
+    feature = "case-title",
+    feature = "case-sentence",
+    feature = "case-dot",
+    feature = "conventions"
+))]
 pub mod case;
+
+#[cfg(all(
+    feature = "grammar",
+    not(any(
+        feature = "case-snake",
+        feature = "case-screaming-snake",
+        feature = "case-camel",
+        feature = "case-pascal",
+        feature = "case-kebab",
+        feature = "case-train",
+        feature = "case-title",
+        feature = "case-sentence",
+        feature = "case-dot",
+        feature = "conventions"
+    ))
+))]
+pub(crate) mod case;
+#[cfg(feature = "ext")]
 pub mod ext;
+#[cfg(feature = "grammar")]
 pub mod grammar;
+#[cfg(feature = "slug")]
 pub mod slug;
+#[cfg(any(
+    feature = "util-slice",
+    feature = "util-normalize",
+    feature = "util-interpolate",
+    feature = "util-text",
+    feature = "util-truncate",
+    feature = "util-mask",
+    feature = "util-pad",
+    feature = "util-format"
+))]
 pub mod utils;
 
+#[cfg(feature = "builder")]
 pub use builder::StrBuilder;
+#[cfg(feature = "conventions")]
 pub use case::{
     classify, deconstantize, demodulize, foreign_key, foreign_key_with_suffix, headline, humanize,
-    is_camel_case, is_dot_case, is_foreign_key, is_foreign_key_with_suffix, is_kebab_case,
-    is_pascal_case, is_screaming_snake_case, is_sentence_case, is_snake_case, is_title_case,
-    is_train_case, tableize, to_camel_case, to_dot_case, to_kebab_case, to_pascal_case,
-    to_screaming_snake_case, to_sentence_case, to_snake_case, to_title_case, to_train_case,
+    is_foreign_key, is_foreign_key_with_suffix, tableize,
 };
+#[cfg(feature = "case-camel")]
+pub use case::{is_camel_case, to_camel_case};
+#[cfg(feature = "case-dot")]
+pub use case::{is_dot_case, to_dot_case};
+#[cfg(feature = "case-kebab")]
+pub use case::{is_kebab_case, to_kebab_case};
+#[cfg(feature = "case-pascal")]
+pub use case::{is_pascal_case, to_pascal_case};
+#[cfg(feature = "case-screaming-snake")]
+pub use case::{is_screaming_snake_case, to_screaming_snake_case};
+#[cfg(feature = "case-sentence")]
+pub use case::{is_sentence_case, to_sentence_case};
+#[cfg(feature = "case-snake")]
+pub use case::{is_snake_case, to_snake_case};
+#[cfg(feature = "case-title")]
+pub use case::{is_title_case, to_title_case};
+#[cfg(feature = "case-train")]
+pub use case::{is_train_case, to_train_case};
+#[cfg(feature = "ext")]
 pub use ext::StrExt;
+#[cfg(feature = "grammar")]
 pub use grammar::{
     Inflector, add_irregular, add_uncountable, is_plural, is_singular, pluralize,
     pluralize_with_count, pluralize_with_count_inclusive, singularize,
 };
-#[cfg(feature = "regex")]
+#[cfg(all(feature = "grammar", feature = "regex"))]
 pub use grammar::{add_plural_rule, add_singular_rule};
+#[cfg(feature = "slug")]
 pub use slug::{SlugOptions, slugify, slugify_with_options};
+#[cfg(feature = "util-text")]
 pub use utils::{
-    Alignment, ExcerptOptions, SentenceOptions, TruncateOptions, WordWrapOptions, after,
-    after_last, before, before_last, between, between_first, excerpt, finish, html_escape,
-    html_unescape, interpolate, interpolate_pairs, justify_columns, mask, mask_email,
-    normalize_slashes, ordinal, pad_both, pad_end, pad_start, sentence, sentence_with_options,
-    squish, start, truncate, unwrap, word_wrap, word_wrap_with_options, words, wrap,
+    Alignment, WordWrapOptions, html_escape, html_unescape, justify_columns, word_wrap,
+    word_wrap_with_options,
 };
+#[cfg(feature = "util-truncate")]
+pub use utils::{ExcerptOptions, TruncateOptions, excerpt, truncate, words};
+#[cfg(feature = "util-format")]
+pub use utils::{SentenceOptions, ordinal, sentence, sentence_with_options};
+#[cfg(feature = "util-slice")]
+pub use utils::{after, after_last, before, before_last, between, between_first};
+#[cfg(feature = "util-pad")]
+pub use utils::{finish, pad_both, pad_end, pad_start, start, unwrap, wrap};
+#[cfg(feature = "util-interpolate")]
+pub use utils::{interpolate, interpolate_pairs};
+#[cfg(feature = "util-mask")]
+pub use utils::{mask, mask_email};
+#[cfg(feature = "util-normalize")]
+pub use utils::{normalize_slashes, squish};
 
 /// Prelude module for convenient glob-importing common types and traits.
 pub mod prelude {
-    pub use super::{
-        builder::StrBuilder,
-        ext::StrExt,
-        grammar::Inflector,
-        slug::SlugOptions,
-        utils::{Alignment, ExcerptOptions, SentenceOptions, TruncateOptions, WordWrapOptions},
-    };
+    #[cfg(feature = "builder")]
+    pub use super::builder::StrBuilder;
+    #[cfg(feature = "ext")]
+    pub use super::ext::StrExt;
+    #[cfg(feature = "grammar")]
+    pub use super::grammar::Inflector;
+    #[cfg(feature = "slug")]
+    pub use super::slug::SlugOptions;
+    #[cfg(feature = "util-format")]
+    pub use super::utils::SentenceOptions;
+    #[cfg(feature = "util-text")]
+    pub use super::utils::{Alignment, WordWrapOptions};
+    #[cfg(feature = "util-truncate")]
+    pub use super::utils::{ExcerptOptions, TruncateOptions};
 }
